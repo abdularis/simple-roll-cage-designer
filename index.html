@@ -1,0 +1,2802 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cage Bender</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: workshop bench. Sticky header (design name, undo/redo, File menu), then a sidebar (tubes, selected tube) beside a 4-up drafting board (Top / Side / Front / 3D) with a one-row tool bar (cage summary is a pop-up there), then one tabbed panel: selected part, print pack, cut list, car keep-outs, help. Rod and bender settings are a tool bar pop-up. */
+:root {
+  --bg: #e9ecee;
+  --panel: #f7f8f9;
+  --panel-2: #eef1f3;
+  --ink: #1a2026;
+  --muted: #5a6670;
+  --line: #cdd4da;
+  --brass: #9c6b12;
+  --brass-soft: #f1e3c4;
+  --on-brass: #ffffff;
+  --ok: #2b7a4b;
+  --ok-soft: #dcefe3;
+  --warn: #9a6200;
+  --warn-soft: #f6e8c9;
+  --bad: #b3261e;
+  --bad-soft: #f7dcd9;
+  --paper: #ffffff;
+  --view-bg: #f3f5f6;
+  --grid: #e1e6ea;
+  --grid-major: #c8d0d6;
+  --keep: #7f8b95;
+  --keep-fill: rgba(127, 139, 149, 0.12);
+  --underlay: #26303a;
+  --tube-edge: rgba(20, 26, 31, 0.55);
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 6px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161a; --panel: #192026; --panel-2: #1f272e; --ink: #e2e7eb; --muted: #93a0aa; --line: #2d363e;
+    --brass: #d9a54a; --brass-soft: #3a2f1a; --on-brass: #17120a;
+    --ok: #6cc38f; --ok-soft: #1b3326; --warn: #e2b04f; --warn-soft: #3a2f17; --bad: #f08a80; --bad-soft: #3d1f1d;
+    --paper: #f1f0eb; --view-bg: #0f1317; --grid: #1a2128; --grid-major: #27313a;
+    --keep: #7b8893; --keep-fill: rgba(123, 136, 147, 0.13); --underlay: #c9d2d9; --tube-edge: rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161a; --panel: #192026; --panel-2: #1f272e; --ink: #e2e7eb; --muted: #93a0aa; --line: #2d363e;
+  --brass: #d9a54a; --brass-soft: #3a2f1a; --on-brass: #17120a;
+  --ok: #6cc38f; --ok-soft: #1b3326; --warn: #e2b04f; --warn-soft: #3a2f17; --bad: #f08a80; --bad-soft: #3d1f1d;
+  --paper: #f1f0eb; --view-bg: #0f1317; --grid: #1a2128; --grid-major: #27313a;
+  --keep: #7b8893; --keep-fill: rgba(123, 136, 147, 0.13); --underlay: #c9d2d9; --tube-edge: rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45; }
+[hidden] { display: none !important; }
+.wrap { padding-inline: 16px; padding-block: 0 48px; max-width: 1520px; margin: 0 auto; display: grid; gap: 18px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0; text-wrap: balance; letter-spacing: 0.01em; }
+h2 { font-size: 1.15rem; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.eyebrow { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.09em; font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg);
+  border-bottom: 1px solid var(--line); margin-inline: -16px; padding: 10px 16px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand svg { flex: none; color: var(--brass); }
+.brand h1 { font-size: 1.25rem; line-height: 1; font-weight: 700; white-space: nowrap; }
+.brand p { font-size: 0.8rem; color: var(--muted); }
+.design-name { display: flex; align-items: center; gap: 8px; flex: 1 1 220px; min-width: 0; }
+.design-name input { flex: 1; min-width: 0; font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; }
+/* which file the design is in: green = changes save into it, amber = needs permission, grey = not linked */
+.file-chip { flex: 0 1 auto; min-width: 0; max-width: 44%; gap: 6px; padding: 5px 10px; border-radius: 999px; font: 500 0.82rem/1.1 var(--font-mono); background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.file-chip svg { flex: none; }
+.file-chip .fn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.file-chip[data-s="ask"] { background: var(--warn-soft); color: var(--warn); }
+.file-chip[data-s="off"] { background: var(--panel-2); color: var(--muted); border-color: var(--line); }
+.file-chip:hover:not(:disabled) { border-color: currentColor; }
+.top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.top-actions .sep { width: 1px; align-self: stretch; background: var(--line); margin-inline: 2px; }
+.stats { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 12px; margin: 0; font-size: 0.84rem; }
+.stats dt { color: var(--muted); }
+.stats dd { margin: 0; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.status { font-size: 0.78rem; color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.status[data-s="saving"]::before, .status[data-s="pending"]::before, .status[data-s="fileSaving"]::before, .status[data-s="fileAsk"]::before { background: var(--warn); }
+.status[data-s="error"], .status[data-s="fileError"] { color: var(--bad); } .status[data-s="error"]::before, .status[data-s="fileError"]::before { background: var(--bad); }
+.status[data-s="readonly"]::before { background: var(--muted); }
+
+button, .btn {
+  font: 500 0.88rem/1 var(--font-body); color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--r); padding: 7px 11px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+button:hover:not(:disabled) { border-color: var(--brass); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.primary { background: var(--brass); color: var(--on-brass); border-color: var(--brass); }
+button.danger { color: var(--bad); }
+button.icon { padding: 5px 9px; min-width: 34px; justify-content: center; font-size: 1.05rem; }
+button.icon[aria-pressed="true"] { background: var(--brass-soft); border-color: var(--brass); color: var(--brass); }
+
+/* drop-down menus: <details class="menu"><summary class="btn">…</summary><div class="menu-pop">…</div></details> */
+.menu { position: relative; }
+.menu > summary { list-style: none; user-select: none; }
+.menu > summary::-webkit-details-marker { display: none; }
+.menu[open] > summary { border-color: var(--brass); }
+.menu-pop { position: absolute; top: calc(100% + 4px); left: 0; z-index: 40; min-width: 230px; display: grid; gap: 1px; padding: 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16); }
+.menu.align-end .menu-pop { left: auto; right: 0; }
+.menu-item { display: grid; gap: 1px; justify-items: start; width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 10px; border-radius: 5px; font: 500 0.88rem/1.2 var(--font-body); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.menu-item small { font-size: 0.74rem; color: var(--muted); font-weight: 400; }
+.menu-item:hover, .menu-item:focus-visible { background: var(--panel-2); }
+.menu-item.danger { color: var(--bad); }
+.menu-note { margin: 2px 4px 4px; padding: 7px 8px; border-radius: 5px; background: var(--ok-soft); color: var(--ok); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+.menu-note.warn { background: var(--warn-soft); color: var(--warn); }
+.menu-pop hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.cage-pop { min-width: 270px; padding: 12px 14px; gap: 8px; }
+.cage-pop h3 { font-size: 0.95rem; }
+#healthBtn .dot { flex: none; }
+.menu-form { grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px; align-items: center; padding: 12px; min-width: 300px; }
+.menu-form label { color: var(--ink); font-size: 0.84rem; }
+.menu-form input[type="range"] { width: 100%; }
+button:focus-visible, input:focus-visible, select:focus-visible, canvas:focus-visible, summary:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+input, select { font: 400 0.9rem var(--font-body); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 5px; padding: 5px 7px; min-width: 0; }
+:root[data-theme="dark"] input, :root[data-theme="dark"] select { background: var(--panel-2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) input, :root:not([data-theme="light"]) select { background: var(--panel-2); } }
+input[type="number"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; width: 100%; }
+input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--brass); }
+input[type="range"] { accent-color: var(--brass); padding: 0; border: 0; background: transparent; width: 90px; }
+label { font-size: 0.8rem; color: var(--muted); }
+
+.summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: flex; flex-direction: column; gap: 1px; padding: 7px 12px; border-radius: var(--r); background: var(--panel); border: 1px solid var(--line); min-width: 0; }
+.chip b { font-family: var(--font-mono); font-weight: 500; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.chip span { font-size: 0.75rem; color: var(--muted); }
+.chip.ok { background: var(--ok-soft); border-color: transparent; } .chip.ok b { color: var(--ok); }
+.chip.warn { background: var(--warn-soft); border-color: transparent; } .chip.warn b { color: var(--warn); }
+.chip.bad { background: var(--bad-soft); border-color: transparent; } .chip.bad b { color: var(--bad); }
+
+.work { display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.side { display: grid; gap: 14px; min-width: 0; }
+.rod-pop { width: min(580px, calc(100vw - 32px)); padding: 12px 14px 14px; gap: 12px; max-height: calc(100vh - 140px); overflow-y: auto; }
+.rod-pop .field.span2 { grid-column: span 2; }
+.rod-pop .field-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); align-items: end; }
+.set-group { display: grid; gap: 6px; }
+.set-group + .set-group { border-top: 1px solid var(--line); padding-top: 12px; }
+.set-group h3 { font-size: 0.9rem; }
+.set-group h3 .muted { font-family: var(--font-body); font-weight: 400; font-size: 0.8rem; }
+.help { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+.card h2 { font-size: 1.02rem; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+.tube-list { list-style: none; margin: 0 -6px; padding: 0; display: grid; gap: 1px; }
+.tube-item { display: grid; grid-template-columns: auto 10px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 5px; cursor: pointer; border: 1px solid transparent; font-size: 0.9rem; }
+.tube-item:hover { background: var(--panel-2); }
+.tube-item[aria-selected="true"] { background: var(--panel-2); border-color: var(--brass); }
+.tube-item .sw { width: 10px; height: 10px; border-radius: 3px; }
+.tube-item .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.tube-item .len { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+.tube-item .vis, .group-head .vis { padding: 3px; margin: -3px 0 -3px -4px; border-color: transparent; background: none; color: var(--muted); }
+.tube-item .vis:hover:not(:disabled), .group-head .vis:hover:not(:disabled) { color: var(--ink); border-color: var(--line); }
+.tube-item .vis svg, .group-head .vis svg { width: 16px; height: 16px; display: block; }
+.tube-item.is-hidden .sw, .tube-item.is-hidden .nm, .tube-item.is-hidden .len { opacity: 0.4; }
+.tube-item.is-hidden .vis { color: var(--ink); }
+.tube-item.in-group { margin-left: 14px; }
+.tube-item.dragging { opacity: 0.5; }
+.group-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 8px 3px; margin-top: 4px; border-radius: 5px; border: 1px dashed transparent; font-size: 0.82rem; }
+.group-head:first-child { margin-top: 0; }
+.group-head .gname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.group-head.none .gname { color: var(--muted); font-weight: 500; }
+.group-head .len { font-size: 0.76rem; color: var(--muted); }
+.group-head.is-hidden .gname { opacity: 0.5; }
+.group-head .vis.mixed { opacity: 0.55; }
+.group-head.drop { border-color: var(--brass); background: var(--brass-soft); }
+.new-group { flex-wrap: nowrap; }
+.new-group input { flex: 1; min-width: 0; }
+.str-explain { margin: 0; font-size: 0.88rem; max-width: 90ch; }
+.str-legend { display: grid; grid-template-columns: repeat(4, minmax(0, 120px)); gap: 4px; font-size: 0.75rem; color: var(--muted); }
+.str-legend i { display: block; height: 8px; border-radius: 4px; margin-bottom: 3px; }
+.str-legend b { color: var(--ink); font-weight: 600; }
+.str-legend .l1 i { background: var(--ok); }
+.str-legend .l2 i { background: linear-gradient(90deg, var(--ok), var(--warn)); }
+.str-legend .l3 i { background: linear-gradient(90deg, var(--warn), var(--bad)); }
+.str-legend .l4 i { background: var(--bad); }
+.rate { display: inline-block; font: 600 0.72rem/1 var(--font-body); padding: 3px 7px; border-radius: 999px; white-space: nowrap; vertical-align: 1px; }
+.rate.ok { background: var(--ok-soft); color: var(--ok); } .rate.warn { background: var(--warn-soft); color: var(--warn); } .rate.bad { background: var(--bad-soft); color: var(--bad); }
+.str-summary { font-size: 0.95rem; }
+.str-summary b.ok { color: var(--ok); } .str-summary b.warn { color: var(--warn); } .str-summary b.bad { color: var(--bad); }
+.str-warn { margin: 0; padding-left: 18px; color: var(--warn); font-size: 0.86rem; display: grid; gap: 2px; }
+.str-warn:empty { display: none; }
+.str-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px 22px; }
+.str-grid h3 { font-size: 0.92rem; margin-bottom: 6px; }
+.str-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.str-list li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 5px 7px; border-radius: 5px; border: 1px solid transparent; font-size: 0.86rem; }
+.str-list li.pick { cursor: pointer; }
+.str-list li.pick:hover, .str-list li.on { background: var(--panel-2); border-color: var(--line); }
+.str-list .pct { font: 600 0.86rem/1.3 var(--font-mono); display: grid; justify-items: start; gap: 3px; }
+.str-list .pct.ok { color: var(--ok); } .str-list .pct.warn { color: var(--warn); } .str-list .pct.bad { color: var(--bad); }
+.str-list .sub { display: block; color: var(--muted); font-size: 0.8rem; }
+.str-list .acts { display: flex; gap: 4px; }
+.str-list .acts button { padding: 4px 8px; font-size: 0.8rem; }
+.str-list .empty { display: block; color: var(--muted); grid-column: 1 / -1; }
+.str-settings summary { cursor: pointer; font-size: 0.9rem; }
+/* tube detail: the hover popup in the views, and the same block for the selected tube in the Strength tab */
+.str-tip { position: fixed; z-index: 60; width: 270px; pointer-events: none; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 11px; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28); font-size: 0.8rem; }
+.str-sel { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--panel-2); font-size: 0.84rem; max-width: 520px; }
+.str-sel:empty { display: none; }
+.sd { display: grid; gap: 7px; }
+.sd-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.sd-head .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.sd-head b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd-place { color: var(--muted); }
+.sd-big { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.sd-big .pct { font: 700 1.25rem/1 var(--font-mono); }
+.sd-big .pct.ok { color: var(--ok); } .sd-big .pct.warn { color: var(--warn); } .sd-big .pct.bad { color: var(--bad); }
+.sd-k { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.sd-mix { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--line); }
+.sd-mix i { display: block; height: 100%; }
+.sd-mix .ax { background: var(--brass); } .sd-mix .bd { background: var(--bad); } .sd-mix .tw { background: var(--muted); }
+.sd-legend { display: flex; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: 0.74rem; }
+.sd-legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; background: var(--c); }
+.sd-cases { display: grid; grid-template-columns: 44px minmax(0, 1fr) 36px; gap: 3px 6px; align-items: center; font-size: 0.74rem; }
+.sd-cases .bar { height: 7px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.sd-cases .bar i { display: block; height: 100%; }
+.sd-cases .v { font-family: var(--font-mono); text-align: right; }
+.sd-cases .on { font-weight: 700; color: var(--ink); }
+.sd-cases span:not(.on) { color: var(--muted); }
+.sd-strip svg { display: block; width: 100%; height: 22px; }
+.sd-strip .ends { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.72rem; }
+.str-settings .field-grid { margin-top: 8px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); align-items: end; }
+#strengthBtn[aria-pressed="true"] { background: var(--brass-soft); border-color: var(--brass); color: var(--brass); }
+.card-head .vis-all { display: flex; gap: 4px; align-items: center; margin-left: auto; }
+.card-head .vis-all button { padding: 4px 8px; font-size: 0.8rem; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+.pill { font-size: 0.72rem; padding: 2px 7px; border-radius: 999px; background: var(--panel-2); color: var(--muted); white-space: nowrap; font-weight: 500; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); } .pill.brass { background: var(--brass-soft); color: var(--brass); }
+
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.field { display: grid; gap: 3px; min-width: 0; }
+.field.wide { grid-column: 1 / -1; }
+.field small { font-size: 0.74rem; color: var(--muted); line-height: 1.3; }
+.inline-cal { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; }
+.pt-readout { font-family: var(--font-mono); font-size: 0.82rem; background: var(--panel-2); border-radius: 5px; padding: 6px 9px; font-variant-numeric: tabular-nums; }
+details > summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+textarea { width: 100%; min-height: 9em; resize: vertical; font: 400 0.84rem/1.45 var(--font-body); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 5px; padding: 7px 9px; margin-top: 8px; }
+:root[data-theme="dark"] textarea { background: var(--panel-2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) textarea { background: var(--panel-2); } }
+
+.tbl-wrap { overflow-x: auto; min-width: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th { text-align: left; font-family: var(--font-display); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+th.num { font-family: var(--font-display); }
+tr.sel td { background: var(--brass-soft); }
+tfoot td { font-weight: 600; border-bottom: none; }
+.pts td { padding: 3px 4px; }
+.pts td:first-child { font-family: var(--font-mono); color: var(--muted); width: 26px; text-align: center; cursor: pointer; }
+.pts input { width: 70px; }
+td.note-cell { font-size: 0.75rem; color: var(--muted); min-width: 160px; }
+
+.views { display: grid; gap: 10px; min-width: 0; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.toolbar .spacer { flex: 1 1 0; }
+.toolbar label { display: inline-flex; align-items: center; gap: 6px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.seg button { border: 0; border-radius: 0; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--brass); color: var(--on-brass); }
+.tool-hint { font-size: 0.82rem; color: var(--muted); padding: 0 2px; margin-top: -4px; }
+.tool-hint b { color: var(--ink); font-weight: 600; }
+.view-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.view { position: relative; margin: 0; background: var(--view-bg); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; aspect-ratio: 4 / 3; max-width: 100%; }
+.view.big { grid-column: 1 / -1; aspect-ratio: 16 / 9; }
+.view canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.view canvas.dragging { cursor: grabbing; }
+.view canvas.over-pt, .view canvas.over-tube { cursor: move; }
+.view canvas.mounting { cursor: pointer; }
+.view canvas.over-plane { cursor: col-resize; }
+.view canvas.over-plane-h { cursor: row-resize; }
+.view canvas.drawing, .view canvas.measuring, .view canvas.angling { cursor: crosshair; }
+.view figcaption { position: absolute; left: 10px; top: 8px; pointer-events: none; display: grid; gap: 0; }
+.view figcaption b { font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; }
+.view figcaption span { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
+.view .expand { position: absolute; right: 8px; top: 8px; padding: 4px 8px; font-size: 0.78rem; }
+kbd { font-family: var(--font-mono); font-size: 0.75rem; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--panel); }
+
+.paper-section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+
+/* the tabbed panel under the drawing board */
+.shop { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.tabs [role="tab"] { border: 0; border-radius: 0; background: transparent; padding: 13px 12px 11px; border-bottom: 2px solid transparent; color: var(--muted); font: 600 0.92rem/1 var(--font-display); letter-spacing: 0.01em; }
+.tabs [role="tab"]:hover { color: var(--ink); border-color: transparent; border-bottom-color: var(--line); }
+.tabs [role="tab"][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--brass); }
+.pane { padding: 16px 18px 20px; display: grid; gap: 16px; min-width: 0; }
+.pane-block { display: grid; gap: 12px; min-width: 0; }
+.pane h2 { font-size: 1.05rem; }
+.sheet-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.msgs { display: grid; gap: 6px; }
+.msg { font-size: 0.86rem; padding: 7px 10px; border-radius: 5px; }
+.msg.bad { background: var(--bad-soft); color: var(--bad); }
+.msg.warn { background: var(--warn-soft); color: var(--warn); }
+.tpl { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 8px; overflow: auto; max-height: 560px; }
+.tpl svg { display: block; width: 100%; height: auto; }
+.tpl .pp-prev + .pp-prev { margin-top: 8px; }
+.pp-prev { border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: #fff; }
+.print-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#printRoot { display: none; }
+@media print {
+  body > *:not(#printRoot) { display: none !important; }
+  html, body { background: #fff !important; margin: 0; }
+  #printRoot { display: block; }
+  #printRoot .pp-page { overflow: hidden; break-after: page; }
+  #printRoot .pp-page:last-child { break-after: auto; }
+  #printRoot svg { display: block; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+.note { font-size: 0.82rem; color: var(--muted); max-width: 90ch; }
+.steps { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; max-width: 75ch; }
+.howto-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.ko-table input[type="number"] { width: 78px; }
+.ko-table input[type="text"] { width: 190px; }
+.confirming { background: var(--bad) !important; color: var(--paper) !important; border-color: var(--bad) !important; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 6px; font-size: 0.86rem; z-index: 50; max-width: calc(100vw - 32px); }
+
+@media (max-width: 1040px) {
+  .work { grid-template-columns: minmax(0, 1fr); }
+  .sheet-grid, .howto-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .view-grid { grid-template-columns: minmax(0, 1fr); }
+  .view.big { aspect-ratio: 4 / 3; }
+  .top { position: static; }
+  .status { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<style id="pageRule"></style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand" title="Roll-cage tube planner for the LC Racing LC12B1">
+      <svg width="26" height="26" viewBox="0 0 30 30" fill="none" aria-hidden="true"><path d="M4 26V12a8 8 0 0 1 8-8h6a8 8 0 0 1 8 8v14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M4 18h22" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".6"/></svg>
+      <h1>Cage Bender</h1>
+    </div>
+    <div class="design-name">
+      <input id="designName" type="text" autocomplete="off" aria-label="Design name" placeholder="Design name">
+      <button class="file-chip" id="fileChip" hidden></button>
+    </div>
+    <div class="top-actions">
+      <button id="undoBtn" class="icon" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+      <button id="redoBtn" class="icon" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
+      <details class="menu align-end" id="fileMenu">
+        <summary class="btn">File <span aria-hidden="true">▾</span></summary>
+        <div class="menu-pop">
+          <p class="menu-note" id="fileNote" hidden></p>
+          <button class="menu-item" id="reopenFile" hidden></button>
+          <button class="menu-item" id="allowFile" hidden></button>
+          <button class="menu-item" id="openFile" hidden>Open design file… <small>changes save back into it</small></button>
+          <label class="menu-item" for="importFile" id="openLabel">Open design file…</label>
+          <button class="menu-item" id="exportJson">Save design file (.json)</button>
+          <button class="menu-item" id="saveAsFile" hidden>Save as a new file…</button>
+          <button class="menu-item" id="unlinkFile" hidden></button>
+          <button class="menu-item" id="copyJson">Copy design as JSON</button>
+          <hr>
+          <button class="menu-item danger keep-open" id="resetBtn">Reset to example</button>
+        </div>
+      </details>
+      <input id="importFile" type="file" accept=".json,application/json" hidden>
+      <span class="status" id="saveStatus" data-s="local">Saved in this browser</span>
+    </div>
+  </header>
+
+  <main class="work">
+    <aside class="side">
+      <section class="card">
+        <div class="card-head"><h2>Tubes</h2><span class="muted" id="tubeCount"></span>
+          <span class="vis-all"><button id="showAllTubes" title="Show every tube in the views">Show all</button><button id="hideAllTubes" title="Hide every tube in the views">Hide all</button></span></div>
+        <ul class="tube-list" id="tubeList" role="listbox" aria-label="Tubes"></ul>
+        <div class="row">
+          <button id="dupTube">Duplicate</button>
+          <button id="mirrorTube">Flip to other side</button>
+          <button id="delTube" class="danger">Delete</button>
+        </div>
+        <details id="notesDetails">
+          <summary>Design notes</summary>
+          <textarea id="designNotes" aria-label="Design notes" placeholder="Build order, measurements, ideas…"></textarea>
+        </details>
+      </section>
+
+      <section class="card" id="editCard">
+        <div class="card-head"><h2>Selected tube</h2><span id="selKind"></span></div>
+        <div class="field"><label for="tubeName">Name</label><input id="tubeName" type="text" autocomplete="off"></div>
+        <label class="row" for="tubeMirror" style="color:var(--ink);font-size:0.88rem"><input id="tubeMirror" type="checkbox"> Mirror pair across the centreline (makes 2)</label>
+        <div class="field"><label for="tubeGroup">Group</label><select id="tubeGroup"></select></div>
+        <div class="row new-group"><input id="newGroupName" type="text" autocomplete="off" maxlength="40" placeholder="New group name" aria-label="New group name"><button id="newGroupBtn" title="Make a group with this name and move the selected tube into it">New group</button></div>
+        <p class="help">Or drag tubes in the list onto a group. A group goes away when its last tube leaves.</p>
+        <div class="pt-readout" id="ptReadout"></div>
+        <details id="coordDetails">
+          <summary>Exact coordinates (optional)</summary>
+          <div class="tbl-wrap" style="margin-top:8px">
+            <table class="pts">
+              <thead><tr><th>#</th><th class="num">X</th><th class="num">Y</th><th class="num">Z</th><th></th></tr></thead>
+              <tbody id="ptsBody"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+    </aside>
+
+    <section class="views" aria-label="Drafting views">
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Tool">
+          <button id="toolSelect" aria-pressed="true" title="Select and move (V)">Select</button>
+          <button id="toolMeasure" aria-pressed="false" title="Measure a distance in Top, Side or Front (M)">Measure</button>
+          <button id="toolAngle" aria-pressed="false" title="Angle between two tube segments (A)">Angle</button>
+          <button id="toolDraw" aria-pressed="false" title="Draw a new tube (D)">Draw</button>
+          <button id="toolMount" aria-pressed="false" title="Mark where the cage is fixed to the car: click a tube corner" hidden>Mounts</button>
+        </div>
+        <details class="menu">
+          <summary class="btn">+ Add <span aria-hidden="true">▾</span></summary>
+          <div class="menu-pop">
+            <button class="menu-item" id="addHoop">Hoop <small>on the Front plane</small></button>
+            <button class="menu-item" id="addBar">Bar <small>on the Top plane</small></button>
+            <button class="menu-item" id="extendTube">Extend selected tube <small>keep drawing from its end</small></button>
+          </div>
+        </details>
+        <span class="spacer"></span>
+        <details class="menu align-end" id="cageMenu">
+          <summary class="btn" id="healthBtn" title="Cage summary"></summary>
+          <div class="menu-pop cage-pop">
+            <h3>Cage</h3>
+            <dl class="stats" id="summary"></dl>
+            <p class="help" id="healthNote"></p>
+          </div>
+        </details>
+        <details class="menu align-end" id="rodMenu">
+          <summary class="btn" title="Rod, bend radius, springback and other shop settings">Rod &amp; bender <span aria-hidden="true">▾</span></summary>
+          <div class="menu-pop rod-pop" role="group" aria-label="Rod and bender">
+        <div class="set-group">
+          <h3>Rod and bend radius</h3>
+          <div class="field-grid">
+            <div class="field"><label for="material">Material</label><select id="material"></select></div>
+            <div class="field"><label for="od">Rod / tube OD (mm)</label><input id="od" type="number" step="0.1" min="0.5"></div>
+            <div class="field"><label for="wall">Wall (mm, 0 = solid)</label><input id="wall" type="number" step="0.05" min="0"></div>
+            <div class="field"><label for="clr">Bend radius, CLR (mm)</label><input id="clr" type="number" step="0.5" min="0"></div>
+            <div class="field"><label for="matE">Stiffness E (GPa)</label><input id="matE" type="number" step="1" min="0"></div>
+            <div class="field"><label for="matFy">Yield strength (MPa)</label><input id="matFy" type="number" step="5" min="0"></div>
+          </div>
+          <small class="help">E and yield are only used by the strength check. Left empty they use typical values for the material (shown greyed): check your supplier's figures. Brazing heat softens the rod near the joints.</small>
+          <small class="help">CLR is measured to the rod centre: former radius + half the OD. A 17 mm diameter former with 3 mm rod gives 8.5 + 1.5 = 10 mm.</small>
+        </div>
+        <div class="set-group">
+          <h3>From the test bend <span class="muted">(print pack, page 2)</span></h3>
+          <div class="field-grid">
+            <div class="field span2">
+              <label for="calTarget">Springback (°): bent → relaxed</label>
+              <div class="inline-cal"><input id="calTarget" type="number" step="0.5"><span class="muted">→</span><input id="calActual" type="number" step="0.5"></div>
+            </div>
+            <div class="field"><label for="markOffset">Mark offset (mm)</label><input id="markOffset" type="number" step="0.5"></div>
+          </div>
+          <small class="help" id="calNote"></small>
+          <small class="help">Mark offset: more than 0 if your bender starts the bend after the line. The printed lines then move earlier by that much.</small>
+        </div>
+        <div class="set-group">
+          <h3>Cutting and checks</h3>
+          <div class="field-grid">
+            <div class="field"><label for="trim">Extra per end (mm)</label><input id="trim" type="number" step="1" min="0"></div>
+            <div class="field"><label for="minStraight">Min straight between bends</label><input id="minStraight" type="number" step="1" min="0"></div>
+            <div class="field"><label for="margin">Clearance warning (mm)</label><input id="margin" type="number" step="0.5" min="0"></div>
+            <div class="field"><label for="stockLen">Stock rod length (mm)</label><input id="stockLen" type="number" step="50" min="50"></div>
+          </div>
+        </div>
+          </div>
+        </details>
+        <details class="menu align-end">
+          <summary class="btn">View <span aria-hidden="true">▾</span></summary>
+          <div class="menu-pop menu-form">
+            <label for="underlay">Manual drawing</label><select id="underlay"></select>
+            <label for="underlayAlpha">Drawing strength</label><input id="underlayAlpha" type="range" min="0.1" max="1" step="0.05">
+            <label for="snapSel">Grid snap</label><select id="snapSel"><option value="0">Off</option><option value="1">1 mm</option><option value="2.5">2.5 mm</option><option value="5">5 mm</option><option value="10">10 mm</option></select>
+          </div>
+        </details>
+        <button id="strengthBtn" aria-pressed="false" title="Strength check: colour the tubes by how hard they work in a crash, list the weak spots and suggest braces">Strength</button>
+        <button id="fitBtn" title="Fit everything in the views">Fit</button>
+        <button id="hintBtn" class="icon" aria-pressed="false" title="Tips for this tool" aria-label="Tips for this tool">?</button>
+      </div>
+      <p class="tool-hint" id="toolHint" hidden></p>
+      <div class="view-grid">
+        <figure class="view" data-view="top"><canvas id="cv-top" tabindex="0" aria-label="Top view"></canvas><figcaption><b>Top</b><span>X → front · Y ↑ left</span></figcaption><button class="expand" data-expand="top" title="Make this view bigger">⤢</button></figure>
+        <figure class="view" data-view="side"><canvas id="cv-side" tabindex="0" aria-label="Side view from the right"></canvas><figcaption><b>Side, from right</b><span>X → front · Z ↑ up</span></figcaption><button class="expand" data-expand="side" title="Make this view bigger">⤢</button></figure>
+        <figure class="view" data-view="front"><canvas id="cv-front" tabindex="0" aria-label="Front view"></canvas><figcaption><b>Front</b><span>Y → left · Z ↑ up</span></figcaption><button class="expand" data-expand="front" title="Make this view bigger">⤢</button></figure>
+        <figure class="view" data-view="iso"><canvas id="cv-iso" tabindex="0" aria-label="3D view"></canvas><figcaption><b>3D</b><span>drag to orbit</span></figcaption><button class="expand" data-expand="iso" title="Make this view bigger">⤢</button></figure>
+      </div>
+    </section>
+  </main>
+
+  <section class="shop" aria-label="Parts, printing and car data">
+    <div class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-part" aria-controls="pane-part" aria-selected="true" tabindex="0">Selected part</button>
+      <button role="tab" id="tab-print" aria-controls="pane-print" aria-selected="false" tabindex="-1">Print</button>
+      <button role="tab" id="tab-cut" aria-controls="pane-cut" aria-selected="false" tabindex="-1">Cut list</button>
+      <button role="tab" id="tab-strength" aria-controls="pane-strength" aria-selected="false" tabindex="-1" hidden>Strength</button>
+      <button role="tab" id="tab-car" aria-controls="pane-car" aria-selected="false" tabindex="-1">Car keep-outs</button>
+      <button role="tab" id="tab-help" aria-controls="pane-help" aria-selected="false" tabindex="-1">Help</button>
+    </div>
+    <div class="pane" role="tabpanel" id="pane-part" aria-labelledby="tab-part">
+  <p class="note" id="sheetEmpty" hidden>Select a tube in the list or a view to see its print page here.</p>
+  <section class="pane-block" id="sheet" aria-labelledby="sheetTitle">
+    <div class="card-head">
+      <div><h2 id="sheetTitle"></h2></div>
+      <div class="row">
+        <button id="printPart">Print this part</button>
+      </div>
+    </div>
+    <div class="summary" id="sheetChips"></div>
+    <div class="msgs" id="sheetMsgs"></div>
+    <div class="tpl" id="tplPreview" aria-label="Print preview of this part"></div>
+    <details>
+      <summary>Bend numbers</summary>
+      <div class="tbl-wrap" style="margin-top:8px">
+        <table>
+          <thead><tr><th>Bend</th><th class="num">Straight before</th><th class="num">Line on 0</th><th class="num">Centre mark</th><th class="num">Angle</th><th class="num">Bend to</th><th>Rotate first</th></tr></thead>
+          <tbody id="bendBody"></tbody>
+        </table>
+      </div>
+      <p class="note" id="sheetNote"></p>
+      <div class="row"><button id="copySheet">Copy bend numbers</button></div>
+    </details>
+  </section>
+    </div>
+    <div class="pane" role="tabpanel" id="pane-print" aria-labelledby="tab-print" hidden>
+  <section class="pane-block" aria-labelledby="packTitle">
+    <div class="card-head">
+      <div><h2 id="packTitle">Print pack</h2></div>
+      <div class="print-row">
+        <label for="paperSel">Paper <select id="paperSel"></select></label>
+        <button id="printPack" class="primary">Print pack</button>
+        <button id="savePack">Save as file (HTML)</button>
+      </div>
+    </div>
+    <p class="note">Full-size pages to work from with a hand bender and a ruler: a parts list, a test bend that measures your bender, one page per bent part (marking strip, bend steps, and the finished shape to check against, with every straight length), the straight pieces, and full-size side, top and front views to hold parts while you join them. Print at 100 % ("actual size") in landscape and check the 50 mm bar.</p>
+    <p class="note">After the test bend on page 2, enter the springback and mark offset under <b>Rod &amp; bender</b> in the tool bar, then print again so every page matches your bender.</p>
+  </section>
+    </div>
+    <div class="pane" role="tabpanel" id="pane-cut" aria-labelledby="tab-cut" hidden>
+  <section class="pane-block" aria-labelledby="cutTitle">
+    <div class="card-head"><div><h2 id="cutTitle">Cut list</h2></div></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Tube</th><th class="num">Qty</th><th class="num">Cut each</th><th class="num">Bends</th><th>Shape</th><th class="num">Weight each</th><th class="num">Clearance</th><th>Status</th></tr></thead>
+        <tbody id="cutBody"></tbody>
+        <tfoot id="cutFoot"></tfoot>
+      </table>
+    </div>
+    <div id="stockPlan" class="note"></div>
+  </section>
+    </div>
+    <div class="pane" role="tabpanel" id="pane-strength" aria-labelledby="tab-strength" hidden>
+  <section class="pane-block" aria-labelledby="strTitle">
+    <div class="card-head">
+      <div><h2 id="strTitle">Strength check</h2></div>
+      <div class="row">
+        <label for="strCase" class="muted" style="font-size:0.85rem">Colour by</label>
+        <select id="strCase"></select>
+        <label class="row" style="font-size:0.85rem;gap:5px"><input type="checkbox" id="strBend"> Show bending</label>
+      </div>
+    </div>
+    <p class="str-explain">The <b>%</b> is how close a spot comes to <b>bending for good</b> in that crash. Below 100% it springs back; at 100% it stays bent. 50% means the hit could be about twice as hard before that happens.</p>
+    <div class="str-legend"><span class="l1"><i></i><b>Strong</b> under 50%</span><span class="l2"><i></i><b>OK</b> 50–80%</span><span class="l3"><i></i><b>Tight</b> 80–100%</span><span class="l4"><i></i><b>Bends</b> 100% and up</span></div>
+    <div id="strSummary" class="str-summary"></div>
+    <div id="strSel" class="str-sel"></div>
+    <ul id="strWarnings" class="str-warn"></ul>
+    <div class="row" id="strNoMount" hidden><button id="strMountLow" class="primary">Mount the lowest corners</button><button id="strMountTool">Use the Mounts tool</button></div>
+    <div class="str-grid">
+      <div>
+        <h3>Weak spots</h3>
+        <ol id="strSpots" class="str-list"></ol>
+      </div>
+      <div>
+        <h3>Braces that help</h3>
+        <ol id="strSugg" class="str-list"></ol>
+      </div>
+    </div>
+    <details class="str-settings">
+      <summary>Loads and mounts <span class="muted">(starting guesses: set them for your car)</span></summary>
+      <div class="field-grid">
+        <div class="field"><label for="strWeight">Car weight, ready to run (g)</label><input id="strWeight" type="number" step="10" min="0"></div>
+        <div class="field"><label for="strFix">Mounts hold the cage</label><select id="strFix"><option value="pinned">In place, free to tilt (pinned)</option><option value="clamped">In place and square (clamped)</option></select></div>
+        <div class="field"><label for="strRoof">Roof landing (× weight)</label><input id="strRoof" type="number" step="0.5" min="0"></div>
+        <div class="field"><label for="strSide">Side roll (× weight)</label><input id="strSide" type="number" step="0.5" min="0"></div>
+        <div class="field"><label for="strNose">Nose hit (× weight)</label><input id="strNose" type="number" step="0.5" min="0"></div>
+        <div class="field"><label for="strRear">Rear hit (× weight)</label><input id="strRear" type="number" step="0.5" min="0"></div>
+      </div>
+      <p class="help" id="strMaterial"></p>
+    </details>
+    <p class="note">How it works: the cage is treated as rods brazed rigidly together and fixed at the mounts, and each crash is a steady push of car weight × the factor, shared by the tubes that touch the ground first. Real crashes are sudden and real braze joints can be weaker than the rod, so read the figures as a <b>ranking of where the cage is weakest</b>, not a promise it will survive. Mounts start on the tube corners that sit on a keep-out marked as a mount surface (the chassis plate); use the <b>Mounts</b> tool to change them.</p>
+  </section>
+    </div>
+    <div class="pane" role="tabpanel" id="pane-car" aria-labelledby="tab-car" hidden>
+  <section class="pane-block" aria-labelledby="koTitle">
+    <div class="card-head">
+      <div><h2 id="koTitle">Keep-out zones</h2></div>
+      <div class="row"><button id="addBox">+ Box</button><button id="addWheel">+ Wheel</button><button id="resetCar" class="danger">Reset to manual layout</button></div>
+    </div>
+    <p class="note">Positions and footprints are measured from the manual's top views (p.30 chassis, p.31 assembled car), scaled so the wheelbase is LC's 230 mm. The drawings are orthographic, so lengths and widths are good to about ±2 mm. <b>Heights are estimates</b>: the manual has no side view. Measure the tops of the shock towers, top deck, motor, spur cover and wing on your car and correct the Z and Height columns. Make the front wheels larger if you want room for steering lock. Untick "Check" for surfaces the cage is meant to touch, like the chassis plate.</p>
+    <div class="tbl-wrap">
+      <table class="ko-table">
+        <thead><tr><th>Name</th><th>Shape</th><th class="num">X</th><th class="num">Y</th><th class="num">Z</th><th class="num">Length / Ø</th><th class="num">Width</th><th class="num">Height</th><th>Check</th><th title="The cage can be fixed to this: tube corners resting on it start as mounts in the strength check">Mount</th><th>Source</th><th></th></tr></thead>
+        <tbody id="koBody"></tbody>
+      </table>
+    </div>
+  </section>
+    </div>
+    <div class="pane" role="tabpanel" id="pane-help" aria-labelledby="tab-help" hidden>
+  <section class="pane-block" aria-labelledby="howTitle">
+    <div class="card-head"><div><h2 id="howTitle">From screen to brazed cage</h2></div></div>
+    <div class="howto-grid">
+      <ol class="steps">
+        <li><b>Measure the heights.</b> Correct the heights in the <b>Car keep-outs</b> tab so the clearance check means something.</li>
+        <li><b>Set up the bender.</b> Under <b>Rod &amp; bender</b> in the tool bar, enter your rod and the bender's bend radius (CLR).</li>
+        <li><b>Draw tubes with the mouse.</b> Use Draw or + Add, then drag tubes and handles into place. Keep each tube flat (all bends in one plane) where you can: flat tubes get one full-size shape to bend against. A 3D tube prints one flat drawing per section plus a protractor for the twists, but it is harder to bend accurately.</li>
+        <li><b>Clear the reds.</b> Fix any segment too short for the radius and any tube that hits the car.</li>
+        <li><b>Check the strength (optional).</b> Press <b>Strength</b> in the tool bar. Tubes turn green → amber → red by how hard they work in a crash, and the Strength tab lists the weak spots and the braces that help most. It is a ranking, not a guarantee: the loads and rod figures are starting guesses.</li>
+        <li><b>Print the pack</b> at 100 % and do its test bend once: it gives you the springback and mark offset for your bender. Enter them and print again.</li>
+        <li><b>Cut, mark, bend, check.</b> Each part's page walks through it: copy the B lines from the strip, put each line on the bender's 0, pull to the angle shown, lay the tube on the full-size drawing after every bend, then trim and measure across the ends.</li>
+        <li><b>Braze on the template.</b> Pin the pieces over the printout on a ceramic or steel plate, never bare paper or wood at the joint.</li>
+      </ol>
+      <div style="display:grid;gap:10px;align-content:start">
+        <p class="note"><b>Line on 0</b> (in Bend numbers) is where to draw the line that goes on the bender's 0, measured from the start end (point 1) of the cut rod, extra length included. It is the start of the bend, moved by the mark offset. <b>Centre mark</b> is the middle of the bend. <b>Bend to</b> is the angle to bend before release so springback lands on the target.</p>
+        <p class="note"><b>Rotate first</b> is how far to turn the tube in the bender before that bend, looking from the start end along the tube (↻ clockwise, ↺ anticlockwise). 0° and 180° mean the tube stays flat. For a 3D tube the print pack adds a full-size protractor for these turns and one flat drawing per section to check against. A mirrored piece uses the same marks with every turn the other way.</p>
+      </div>
+    </div>
+  </section>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="str-tip" id="strTip" hidden></div>
+<div id="printRoot" aria-hidden="true"></div>
+
+<script src="geometry.js"></script>
+<script src="car-lc12b1.js"></script>
+<script>
+"use strict";
+const G = window.CageGeo, CAR = window.CAR_LC12B1;
+const { V, D2R, MATERIALS, mirrorPt, num, fmt, esc } = G;
+const TUBE_COLORS = ["#2f7fd1", "#d0602b", "#2a9d6f", "#b2459c", "#c4961c", "#5a5fd6", "#1c9db0", "#c2414b"];
+const LS_KEY = "cage-bender.design.v2";
+
+// ---------- helpers ----------
+const $ = (id) => document.getElementById(id);
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const uid = (p) => p + Math.random().toString(36).slice(2, 8);
+const fmtInt = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString("en-US") : "–");
+const slug = (s) => (String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "tube");
+const r1 = (v) => Math.round(v * 10) / 10;
+let toastTimer = null;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 2800);
+}
+
+// ---------- state ----------
+function exampleDesign() {
+  return {
+    v: 2, name: CAR.example.name, notes: CAR.example.notes || "",
+    stock: { material: "steel", od: 3, wall: 0 },
+    bender: { clr: 10, calTarget: 90, calActual: 86, markOffset: 0, trim: 10, minStraight: 6 },
+    margin: 3, stockLen: 1000, snap: 1, paper: "a4",
+    underlay: "chassis", underlayAlpha: 0.45,
+    planes: { top: 95, side: 40, front: 30 },
+    tubes: clone(CAR.example.tubes),
+    keepouts: clone(CAR.keepouts),
+    strength: clone(G.STRENGTH_DEFAULTS),
+  };
+}
+function migrate(d) {
+  if (!d || typeof d !== "object" || !Array.isArray(d.tubes)) throw new Error("This file is not a Cage Bender design.");
+  const base = exampleDesign();
+  const okPt = (p) => Array.isArray(p) && p.length === 3 && p.every((x) => Number.isFinite(+x));
+  // { "<corner index>": true | false } mount overrides for the strength check; anything else is dropped
+  const okMounts = (m) => { const o = {}; if (m && typeof m === "object") for (const [k, v] of Object.entries(m)) if (/^\d+$/.test(k) && typeof v === "boolean") o[k] = v; return Object.keys(o).length ? o : undefined; };
+  const koHasMount = Array.isArray(d.keepouts) && d.keepouts.some((k) => k && "mount" in k);
+  const out = {
+    v: 2,
+    name: typeof d.name === "string" ? d.name : base.name,
+    notes: typeof d.notes === "string" ? d.notes : "",
+    stock: { ...base.stock, ...(d.stock || {}) },
+    bender: { ...base.bender, ...(d.bender || {}) },
+    margin: num(d.margin, base.margin), stockLen: num(d.stockLen, base.stockLen), snap: num(d.snap, base.snap),
+    paper: G.PAPERS[d.paper] ? d.paper : base.paper,
+    underlay: CAR.underlays[d.underlay] || d.underlay === "none" || d.underlay === "tubes" ? d.underlay : base.underlay,
+    underlayAlpha: num(d.underlayAlpha, base.underlayAlpha),
+    planes: { ...base.planes, ...(d.planes || {}) },
+    tubes: d.tubes.filter((t) => t && Array.isArray(t.pts)).map((t, i) => ({
+      id: String(t.id || uid("t")), name: String(t.name || `Tube ${i + 1}`), color: num(t.color, i) % TUBE_COLORS.length,
+      mirror: !!t.mirror, hidden: !!t.hidden,
+      group: typeof t.group === "string" && t.group.trim() ? t.group.trim().slice(0, 40) : null,
+      mounts: okMounts(t.mounts), pts: t.pts.filter(okPt).map((p) => p.map(Number)),
+    })),
+    keepouts: (Array.isArray(d.keepouts) ? d.keepouts : base.keepouts).filter((k) => k && okPt(k.c) && okPt(k.s)).map((k) => ({
+      id: String(k.id || uid("k")), name: String(k.name || "Keep-out"), kind: k.kind === "wheel" ? "wheel" : "box",
+      c: k.c.map(Number), s: k.s.map(Number), check: k.check !== false, note: typeof k.note === "string" ? k.note : "",
+      // designs saved before mount surfaces existed take the flag from the car data (the chassis plate)
+      mount: koHasMount ? !!k.mount : !!CAR.keepouts.find((c) => c.id === k.id)?.mount,
+    })),
+    strength: {
+      weight: Math.max(0, num(d.strength?.weight, G.STRENGTH_DEFAULTS.weight)),
+      fix: d.strength?.fix === "clamped" ? "clamped" : "pinned",
+      factors: Object.fromEntries(Object.entries(G.STRENGTH_DEFAULTS.factors).map(([k, v]) => [k, Math.max(0, num(d.strength?.factors?.[k], v))])),
+    },
+  };
+  if (!MATERIALS[out.stock.material]) out.stock.material = "steel";
+  for (const k of ["E", "fy"]) if (!(num(out.stock[k]) > 0)) delete out.stock[k];
+  return out;
+}
+
+let state = exampleDesign();
+try { const raw = localStorage.getItem(LS_KEY); if (raw) state = migrate(JSON.parse(raw)); } catch (e) { state = exampleDesign(); }
+
+const ui = { sel: state.tubes[0]?.id || null, selPt: null, tool: "select", drawing: null, measure: null, angle: null, angleHover: null, hover: null, lastView: "side", viewFocus: false, big: null, edited: false };
+const undoStack = [], redoStack = [];
+function pushUndo() {
+  undoStack.push(JSON.stringify(state));
+  if (undoStack.length > 150) undoStack.shift();
+  redoStack.length = 0;
+}
+// Visibility is a viewing choice, not an edit: undo/redo keep each tube's current shown/hidden setting.
+function restoreSnap(json) {
+  const hidden = new Map(state.tubes.map((t) => [t.id, !!t.hidden]));
+  state = JSON.parse(json);
+  for (const t of state.tubes) if (hidden.has(t.id)) t.hidden = hidden.get(t.id);
+}
+function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(state)); restoreSnap(undoStack.pop()); afterHistory(); }
+function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(state)); restoreSnap(redoStack.pop()); afterHistory(); }
+function afterHistory() {
+  if (!state.tubes.find((t) => t.id === ui.sel)) ui.sel = state.tubes[0]?.id || null;
+  if (ui.drawing && !state.tubes.find((t) => t.id === ui.drawing)) ui.drawing = null;
+  ui.selPt = null;
+  changed(); renderAll();
+}
+const selTube = () => state.tubes.find((t) => t.id === ui.sel) || null;
+const tubeById = (id) => state.tubes.find((t) => t.id === id) || null;
+function nextColor() {
+  const used = new Set(state.tubes.map((t) => t.color));
+  return [...TUBE_COLORS.keys()].find((c) => !used.has(c)) ?? state.tubes.length % TUBE_COLORS.length;
+}
+
+let results = new Map();
+function recompute() {
+  results = new Map();
+  for (const t of state.tubes) results.set(t.id, G.computeTube(t, state));
+}
+
+// ---------- persistence ----------
+let dbDoc = null, canWrite = true, saveTimer = null, dbBusy = false, dbAgain = false;
+const STATUS_TEXT = {
+  local: "Saved in this browser", pending: "Unsaved changes", saving: "Saving…", saved: "Saved",
+  readonly: "View only: changes stay in this browser", error: "Couldn't save. Will retry on the next change.",
+  // the file chip next to the design name already shows which file
+  fileSaving: "Saving…", fileSaved: "Saved", fileError: "Couldn't write the file. Kept in this browser.", fileAsk: "Not saving: File → Allow",
+};
+function setStatus(s) { const el = $("saveStatus"), t = STATUS_TEXT[s]; el.dataset.s = s; el.textContent = typeof t === "function" ? t() : t; el.title = el.textContent; }
+function changed() { ui.edited = true; setStatus("pending"); clearTimeout(saveTimer); saveTimer = setTimeout(doSave, 900); }
+async function doSave() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) { /* storage blocked */ }
+  if (fileHandle) { writeLinkedFile(); return; }
+  if (!dbDoc) { setStatus("local"); return; }
+  if (!canWrite) { setStatus("readonly"); return; }
+  if (dbBusy) { dbAgain = true; return; }
+  dbBusy = true; setStatus("saving");
+  try { await dbDoc.set({ design: clone(state), savedAt: new Date().toISOString() }); setStatus("saved"); }
+  catch (e) { if (e && e.code === "invalid_argument") { canWrite = false; setStatus("readonly"); } else setStatus("error"); }
+  dbBusy = false;
+  if (dbAgain) { dbAgain = false; doSave(); }
+}
+// ---------- linked design file ----------
+// In Chrome and Edge (File System Access API) a design opened from, or saved to, a .json file stays linked to it:
+// every change is written back into that file. The browser forgets write permission on reload, so the File menu offers
+// to reopen the last file. Other browsers and the claude.ai artifact keep the plain open / download behaviour.
+const canLinkFiles = typeof window.showOpenFilePicker === "function" && typeof window.showSaveFilePicker === "function" && window.self === window.top && !(window.claude && window.claude.use);
+const FILE_TYPES = [{ description: "Cage Bender design", accept: { "application/json": [".json"] } }];
+let fileHandle = null, fileWritable = false, lastHandle = null, fileBusy = false, fileAgain = false, importedName = "";
+function kv(mode, fn) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open("cage-bender", 1);
+    open.onupgradeneeded = () => open.result.createObjectStore("kv");
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      try { const tx = open.result.transaction("kv", mode), req = fn(tx.objectStore("kv")); tx.oncomplete = () => resolve(req.result); tx.onerror = () => reject(tx.error); }
+      catch (e) { reject(e); } // e.g. a handle the browser can't store
+    };
+  });
+}
+const rememberHandle = (h) => kv("readwrite", (st) => (h ? st.put(h, "file") : st.delete("file"))).catch(() => {});
+async function writeLinkedFile() {
+  if (!fileHandle) return;
+  if (!fileWritable) { setStatus("fileAsk"); return; }
+  if (fileBusy) { fileAgain = true; return; }
+  fileBusy = true; setStatus("fileSaving");
+  try { const w = await fileHandle.createWritable(); await w.write(JSON.stringify(state, null, 2)); await w.close(); setStatus("fileSaved"); }
+  catch (e) { setStatus("fileError"); }
+  fileBusy = false;
+  if (fileAgain) { fileAgain = false; writeLinkedFile(); }
+}
+/** Links the design to a file. Asking for write access needs a click, so call it from one. */
+async function linkFile(handle) {
+  fileHandle = handle; fileWritable = false; importedName = "";
+  try { fileWritable = (await handle.queryPermission({ mode: "readwrite" })) === "granted" || (await handle.requestPermission({ mode: "readwrite" })) === "granted"; } catch (e) { fileWritable = false; }
+  lastHandle = handle; rememberHandle(handle); renderFileMenu();
+  return fileWritable;
+}
+function unlinkFile(forget) {
+  fileHandle = null; fileWritable = false;
+  if (forget) { lastHandle = null; rememberHandle(null); }
+  renderFileMenu(); setStatus(dbDoc ? (canWrite ? "saved" : "readonly") : "local");
+}
+async function loadFromHandle(handle) {
+  let d;
+  try { d = migrate(JSON.parse(await (await handle.getFile()).text())); }
+  catch (err) { toast(err && err.message && err.message.startsWith("This file") ? err.message : `${handle.name} isn't a valid design file.`); return; }
+  pushUndo(); state = d; ui.sel = state.tubes[0]?.id || null; ui.selPt = null; ui.drawing = null;
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) { /* storage blocked */ }
+  renderAll(); fitAll();
+  const ok = await linkFile(handle);
+  if (ok) setStatus("fileSaved"); else setStatus("fileAsk");
+  toast(ok ? `Opened ${handle.name}. Changes now save back into it.` : `Opened ${handle.name}. To save changes into it, choose File → Allow saving.`);
+}
+async function saveToNewFile() {
+  let handle;
+  try { handle = await window.showSaveFilePicker({ suggestedName: `${slug(state.name)}.json`, types: FILE_TYPES }); } catch (e) { return; } // cancelled
+  await linkFile(handle); await writeLinkedFile();
+  if (fileWritable) toast(`Saved to ${handle.name}. Changes now save into it.`);
+}
+const FILE_ICON = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 1.75h5.5L13 5.25v9H4z"/><path d="M9.25 1.75v3.75H13"/></svg>';
+/** The chip next to the design name and the tab title say which file the design lives in. Browsers only expose the file name, not its folder. */
+function renderFileChip() {
+  const chip = $("fileChip");
+  let s = null, name = "", tip = "";
+  if (fileHandle && fileWritable) { s = "on"; name = fileHandle.name; tip = `Changes save into ${name}. (Browsers only show the file name, not its folder.) Click for file options.`; }
+  else if (fileHandle) { s = "ask"; name = fileHandle.name; tip = `Opened from ${name}, but not saving into it yet. Click, then "Allow saving".`; }
+  else if (importedName) { s = "off"; name = importedName; tip = `Opened from ${name}. Changes stay in this browser; File → Save design file keeps a copy.`; }
+  else if (canLinkFiles && lastHandle) { s = "off"; name = `Reopen ${lastHandle.name}`; tip = `Not linked to a file. Click to reopen ${lastHandle.name} and keep saving into it.`; }
+  chip.hidden = !s;
+  if (s) { chip.dataset.s = s; chip.title = tip; chip.setAttribute("aria-label", tip); chip.innerHTML = `${FILE_ICON}<span class="fn">${esc(name)}</span>`; }
+  const fileName = fileHandle ? fileHandle.name : importedName;
+  document.title = fileName ? `${fileName} · Cage Bender` : "Cage Bender";
+}
+function renderFileMenu() {
+  renderFileChip();
+  const name = fileHandle ? fileHandle.name : "";
+  $("fileNote").hidden = !fileHandle;
+  $("fileNote").className = "menu-note" + (fileHandle && !fileWritable ? " warn" : "");
+  $("fileNote").textContent = fileHandle ? (fileWritable ? `Changes save into ${name}` : `Not saving into ${name} yet`) : "";
+  $("allowFile").hidden = !(fileHandle && !fileWritable);
+  $("allowFile").innerHTML = `Allow saving to ${esc(name)}`;
+  $("reopenFile").hidden = !(canLinkFiles && !fileHandle && lastHandle);
+  if (lastHandle) $("reopenFile").innerHTML = `Reopen ${esc(lastHandle.name)} <small>and keep saving into it</small>`;
+  $("openFile").hidden = !canLinkFiles; $("openLabel").hidden = canLinkFiles;
+  $("exportJson").hidden = !!(fileHandle && fileWritable);
+  $("exportJson").innerHTML = canLinkFiles ? "Save design file… <small>changes keep saving into it</small>" : "Save design file (.json)";
+  $("saveAsFile").hidden = !(fileHandle && fileWritable);
+  $("unlinkFile").hidden = !fileHandle;
+  $("unlinkFile").innerHTML = `Stop saving to ${esc(name)} <small>changes stay in this browser</small>`;
+}
+
+// When opened as a claude.ai artifact the design is also kept in the artifact's database; opened as a local file it lives in localStorage.
+async function connectDb() {
+  if (!(window.claude && window.claude.use)) return;
+  let db = null;
+  try { db = await window.claude.use("db"); } catch (e) { db = null; }
+  if (!db) return;
+  try { const user = await window.claude.use("user"); if (user && (await user.canEdit()) === false) canWrite = false; } catch (e) { /* let a refused write decide */ }
+  dbDoc = db.doc("designs/main");
+  try {
+    const snap = await dbDoc.get();
+    if (snap.exists && !ui.edited && snap.data()?.design) {
+      state = migrate(clone(snap.data().design));
+      ui.sel = state.tubes[0]?.id || null; ui.selPt = null; undoStack.length = 0; redoStack.length = 0;
+      try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+      renderAll(); fitAll();
+    }
+  } catch (e) { /* keep local copy */ }
+  setStatus(canWrite ? (ui.edited ? "pending" : "saved") : "readonly");
+  if (ui.edited && canWrite) doSave();
+}
+async function offerFile(filename, data, mime) {
+  if (window.claude && window.claude.use) {
+    let dl = null;
+    try { dl = await window.claude.use("downloads"); } catch (e) { dl = null; }
+    if (dl) {
+      try { await dl.save({ filename, data }); toast(`Saved ${filename}`); return; }
+      catch (e) { if (e && e.code === "declined") return; }
+    }
+    try { await navigator.clipboard.writeText(data); toast("Saving files isn't available here, so it was copied to the clipboard instead."); }
+    catch (e) { toast("Saving files isn't available here."); }
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([data], { type: mime }));
+  const a = document.createElement("a"); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast(`Saved ${filename}`);
+}
+
+// ---------- views ----------
+const VIEWS = [
+  { id: "top", r: [1, 0, 0], u: [0, 1, 0], d: [0, 0, 1], edit: true, axis: 2 },
+  { id: "side", r: [1, 0, 0], u: [0, 0, 1], d: [0, -1, 0], edit: true, axis: 1 },
+  { id: "front", r: [0, 1, 0], u: [0, 0, 1], d: [1, 0, 0], edit: true, axis: 0 },
+  { id: "iso", yaw: 35 * D2R, pitch: 24 * D2R, edit: false },
+];
+const VIEW_NAME = { top: "Top", side: "Side", front: "Front" };
+const AXIS = ["X", "Y", "Z"];
+for (const v of VIEWS) { v.cv = $("cv-" + v.id); v.ctx = v.cv.getContext("2d"); v.scale = 1; v.cx = 0; v.cy = 0; v.W = 1; v.H = 1; v.dpr = 1; }
+const viewById = (id) => VIEWS.find((v) => v.id === id);
+const axisOf = (vec) => vec.findIndex((c) => Math.abs(c) > 0.5);
+
+function basis(v) {
+  if (v.id !== "iso") return v;
+  const cp = Math.cos(v.pitch), sp = Math.sin(v.pitch), cy = Math.cos(v.yaw), sy = Math.sin(v.yaw);
+  const d = [cp * cy, cp * sy, sp], r = [-sy, cy, 0];
+  return { r, u: V.cross(d, r), d };
+}
+function proj(v, b, p) { return [v.W / 2 + (V.dot(p, b.r) - v.cx) * v.scale, v.H / 2 - (V.dot(p, b.u) - v.cy) * v.scale, V.dot(p, b.d)]; }
+const toWorldX = (v, sx) => v.cx + (sx - v.W / 2) / v.scale;
+const toWorldY = (v, sy) => v.cy - (sy - v.H / 2) / v.scale;
+
+/** World point under the mouse in an ortho view, on that view's drawing plane, snapped to the grid. */
+function planePoint(v, x, y) {
+  const a = toWorldX(v, x), b = toWorldY(v, y), sn = num(state.snap);
+  const g = (q) => (sn > 0 ? Math.round(q / sn) * sn : r1(q));
+  const p = [0, 0, 0];
+  p[axisOf(v.r)] = g(a * Math.sign(v.r[axisOf(v.r)]));
+  p[axisOf(v.u)] = g(b * Math.sign(v.u[axisOf(v.u)]));
+  p[v.axis] = num(state.planes[v.id]);
+  return p;
+}
+
+function keepoutPoints(ko) {
+  const [cx, cy, cz] = ko.c, s = ko.s;
+  if (ko.kind === "wheel") {
+    const ring = (yy) => { const a = []; for (let k = 0; k < 36; k++) { const t = k / 36 * Math.PI * 2; a.push([cx + Math.cos(t) * s[0] / 2, yy, cz + Math.sin(t) * s[0] / 2]); } return a; };
+    return { rings: [ring(cy - s[1] / 2), ring(cy + s[1] / 2)] };
+  }
+  const h = [s[0] / 2, s[1] / 2, s[2] / 2], c = [];
+  for (const i of [-1, 1]) for (const j of [-1, 1]) for (const k of [-1, 1]) c.push([cx + i * h[0], cy + j * h[1], cz + k * h[2]]);
+  return { corners: c };
+}
+const BOX_EDGES = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
+function hull(pts) {
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p;
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  up.pop(); lo.pop();
+  return lo.concat(up);
+}
+function sceneBounds(b) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const add = (p) => { const x = V.dot(p, b.r), y = V.dot(p, b.u); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); };
+  for (const ko of state.keepouts) { const g = keepoutPoints(ko); (g.corners || g.rings.flat()).forEach(add); }
+  for (const t of state.tubes) for (const p of t.pts) { add(p); if (t.mirror) add(mirrorPt(p)); }
+  add([0, 0, 0]);
+  if (!Number.isFinite(x0)) { x0 = -100; x1 = 100; y0 = -100; y1 = 100; }
+  return { x0, x1, y0, y1 };
+}
+function fitAll() {
+  sizeCanvases();
+  let common = Infinity;
+  for (const v of VIEWS) {
+    const b = basis(v), bb = sceneBounds(b);
+    v.cx = (bb.x0 + bb.x1) / 2; v.cy = (bb.y0 + bb.y1) / 2;
+    v.scale = Math.min((v.W - 36) / Math.max(bb.x1 - bb.x0, 10), (v.H - 64) / Math.max(bb.y1 - bb.y0, 10));
+    if (v.id !== "iso") common = Math.min(common, v.scale);
+  }
+  for (const v of VIEWS) if (v.id !== "iso") v.scale = common;
+  drawAll();
+}
+function sizeCanvases() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const v of VIEWS) {
+    const r = v.cv.getBoundingClientRect();
+    const W = Math.max(50, r.width), H = Math.max(50, r.height);
+    if (Math.abs(W - v.W) > 0.5 || Math.abs(H - v.H) > 0.5 || v.dpr !== dpr) {
+      v.W = W; v.H = H; v.dpr = dpr;
+      v.cv.width = Math.round(W * dpr); v.cv.height = Math.round(H * dpr);
+    }
+  }
+}
+
+// manual drawings, tinted to the theme
+const underlayImgs = {};
+const tintCache = new Map();
+for (const [k, u] of Object.entries(CAR.underlays)) {
+  const im = new Image();
+  im.onload = () => drawAll();
+  im.src = u.src;
+  underlayImgs[k] = im;
+}
+function tintedUnderlay(key, color) {
+  const id = key + "|" + color;
+  if (tintCache.has(id)) return tintCache.get(id);
+  const im = underlayImgs[key];
+  if (!im || !im.complete || !im.naturalWidth) return null;
+  const c = document.createElement("canvas");
+  c.width = im.naturalWidth; c.height = im.naturalHeight;
+  const g = c.getContext("2d");
+  g.drawImage(im, 0, 0);
+  g.globalCompositeOperation = "source-in";
+  g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
+  tintCache.set(id, c);
+  return c;
+}
+
+let colors = {};
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ["view-bg", "grid", "grid-major", "keep", "keep-fill", "brass", "bad", "warn", "ink", "muted", "tube-edge", "underlay", "ok"]) colors[k] = cs.getPropertyValue("--" + k).trim();
+}
+
+function strokePath(ctx, sp) { ctx.beginPath(); sp.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); }
+
+/** One keep-out: see-through fill over its outline, then its edges (dashed when it is not clearance-checked). */
+function drawKeepout(ctx, ko, P) {
+  const g = keepoutPoints(ko);
+  const flat = (g.corners || g.rings.flat()).map(P);
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = ko.check ? 1 : 0.5;
+  ctx.fillStyle = colors["keep-fill"];
+  strokePath(ctx, hull(flat)); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = colors.keep;
+  ctx.setLineDash(ko.check ? [] : [4, 3]);
+  ctx.beginPath();
+  if (g.corners) { for (const [i, j] of BOX_EDGES) { ctx.moveTo(flat[i][0], flat[i][1]); ctx.lineTo(flat[j][0], flat[j][1]); } }
+  else {
+    for (const ring of g.rings) { ring.map(P).forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath(); }
+    for (let k = 0; k < 36; k += 9) { const a = P(g.rings[0][k]), c = P(g.rings[1][k]); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); }
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+}
+/** Mix two #rgb / #rrggbb / rgb() colours: t = 0 gives a, 1 gives b. Anything else comes back as a. */
+function mixHex(a, b, t) {
+  const rgb = (h) => {
+    const r = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(h || ""); if (r) return r.slice(1, 4).map(Number);
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(h || ""); if (!m) return null; const s = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1]; return [0, 2, 4].map((i) => parseInt(s.slice(i, i + 2), 16));
+  };
+  const A = rgb(a), B = rgb(b); if (!A || !B) return a;
+  return `rgb(${A.map((x, i) => Math.round(x + (B[i] - x) * t)).join(",")})`;
+}
+/** 3D view: tubes and keep-outs by depth.
+ * Drawing whole tubes one after another (list order) lets a tube at the back paint over one at the front wherever
+ * they cross. Instead, every tube is cut into short pieces painted far to near (painter's sort on depth), so the
+ * nearer tube covers the farther one at each crossing.
+ * Keep-outs are big see-through solids, so one depth per keep-out can't place them against 4 mm pieces. Instead
+ * each piece casts a ray toward the viewer (CageGeo.rayHitsKeepout): the keep-outs it hits are in front of it.
+ * Keep-outs are painted far to near (by centre depth); each piece goes just before the farthest keep-out in front
+ * of it, faded a little more, and the pieces with nothing in front go last.
+ * The view is orthographic, so there is no perspective to tell front from back: farther pieces also fade toward
+ * the background. Mirrored copies are real tubes here and are drawn at full strength (the flat views dim them). */
+const PIECE_MM = 4, DEPTH_FADE = 0.5, HIDDEN_FADE = 0.3;
+function drawSceneByDepth(ctx, v, b, P, tubes, od) {
+  const pieces = [], w = Math.max(2.2, od * v.scale);
+  for (const t of tubes) {
+    const r = results.get(t.id); if (!r || r.samples.length < 2) continue;
+    const col = TUBE_COLORS[t.color % TUBE_COLORS.length], sel = t.id === ui.sel;
+    (t.mirror ? [r.samples, r.samples.map(mirrorPt)] : [r.samples]).forEach((pts, ci) => {
+      const cols = ui.strFresh ? strengthCols(t, ci === 1) : null; // strength colours, one per drawn segment
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], d = V.sub(pts[i], a), n = Math.max(1, Math.ceil(V.len(d) / PIECE_MM)), c = cols ? cols[i - 1] : col;
+        let p0 = a, q0 = P(a);
+        for (let k = 1; k <= n; k++) {
+          const p1 = V.add(a, V.mul(d, k / n)), q1 = P(p1);
+          pieces.push({ q0, q1, z: (q0[2] + q1[2]) / 2, mid: V.mul(V.add(p0, p1), 0.5), col: c, sel });
+          p0 = p1; q0 = q1;
+        }
+      }
+    });
+  }
+  // keep-outs far to near; each piece waits for the farthest keep-out in front of it (layer kos.length = none)
+  const kos = (tubesOnly() ? [] : state.keepouts).map((ko) => ({ ko, z: P(ko.c)[2] })).sort((a, c) => a.z - c.z);
+  const lift = od / 2 + 0.5; // ray from the tube's near surface, so a tube resting on a part is not hidden by it
+  const layers = kos.map(() => []); layers.push([]);
+  for (const p of pieces) {
+    const o = V.add(p.mid, V.mul(b.d, lift));
+    const k = kos.findIndex((e) => G.rayHitsKeepout(e.ko, o, b.d));
+    p.hidden = k >= 0;
+    layers[k >= 0 ? k : kos.length].push(p);
+  }
+  let z0 = Infinity, z1 = -Infinity;
+  for (const p of pieces) { z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
+  const span = z1 - z0 || 1, shade = new Map();
+  const drawPiece = (p) => {
+    const f = Math.min(0.85, Math.round((((z1 - p.z) / span) * DEPTH_FADE + (p.hidden ? HIDDEN_FADE : 0)) * 20) / 20); // 0 = nearest
+    const key = p.col + f;
+    if (!shade.has(key)) shade.set(key, mixHex(p.col, colors["view-bg"], f));
+    ctx.beginPath(); ctx.moveTo(p.q0[0], p.q0[1]); ctx.lineTo(p.q1[0], p.q1[1]);
+    // outline with butt ends, so it never paints over the colour of the piece it joins; colour with round ends to close the joins
+    ctx.lineCap = "butt"; ctx.strokeStyle = p.sel ? colors.brass : colors["tube-edge"]; ctx.lineWidth = w + (p.sel ? 3 : 2); ctx.stroke();
+    ctx.lineCap = "round"; ctx.strokeStyle = shade.get(key); ctx.lineWidth = w; ctx.stroke();
+  };
+  layers.forEach((layer, i) => {
+    layer.sort((a, c) => a.z - c.z).forEach(drawPiece); // depth grows toward the viewer: far first
+    if (i < kos.length) drawKeepout(ctx, kos[i].ko, P);
+  });
+}
+
+const tubesOnly = () => state.underlay === "tubes";
+function drawView(v) {
+  const ctx = v.ctx, W = v.W, H = v.H, b = basis(v);
+  ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
+  ctx.fillStyle = colors["view-bg"]; ctx.fillRect(0, 0, W, H);
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const P = (p) => proj(v, b, p);
+  const mono = "11px 'IBM Plex Mono', monospace";
+  const bare = tubesOnly(); // View > Manual drawing > Tubes only: no grid, drawing or car, just tubes (and tool marks)
+
+  // grid
+  if (bare) { /* no grid */ } else if (v.id !== "iso") {
+    const minor = v.scale * 10 >= 7 ? 10 : 50;
+    const xa = Math.floor(toWorldX(v, 0) / minor) * minor, xb = toWorldX(v, W);
+    const ya = Math.floor(toWorldY(v, H) / minor) * minor, yb = toWorldY(v, 0);
+    ctx.lineWidth = 1;
+    for (let x = xa; x <= xb; x += minor) {
+      const sx = Math.round(W / 2 + (x - v.cx) * v.scale) + 0.5;
+      ctx.strokeStyle = Math.abs(x % 50) < 1e-6 ? colors["grid-major"] : colors.grid;
+      ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
+    }
+    for (let y = ya; y <= yb; y += minor) {
+      const sy = Math.round(H / 2 - (y - v.cy) * v.scale) + 0.5;
+      ctx.strokeStyle = Math.abs(y % 50) < 1e-6 ? colors["grid-major"] : colors.grid;
+      ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
+    }
+    if (v.id !== "top") {
+      const sy = H / 2 - (0 - v.cy) * v.scale;
+      ctx.strokeStyle = colors.muted; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
+      ctx.fillStyle = colors.muted; ctx.font = mono; ctx.fillText("ground", W - 54, sy - 5);
+    }
+    ctx.fillStyle = colors.muted; ctx.font = mono; ctx.fillText(`grid ${minor} mm`, W - 80, H - 10);
+  } else {
+    ctx.strokeStyle = colors.grid; ctx.lineWidth = 1;
+    for (let x = -200; x <= 200; x += 50) { const a = P([x, -150, 0]), c = P([x, 150, 0]); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); ctx.stroke(); }
+    for (let y = -150; y <= 150; y += 50) { const a = P([-200, y, 0]), c = P([200, y, 0]); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); ctx.stroke(); }
+  }
+
+  // manual drawing on the ground plane (Top and 3D only: the manual has no side view)
+  if (state.underlay !== "none" && (v.id === "top" || v.id === "iso")) {
+    const u = CAR.underlays[state.underlay], img = u && tintedUnderlay(state.underlay, colors.underlay);
+    if (img) {
+      const w2 = (px, py) => [(px - u.ox) * u.mmPerPx, (u.oy - py) * u.mmPerPx, 0];
+      const S0 = P(w2(0, 0)), Sx = P(w2(1, 0)), Sy = P(w2(0, 1));
+      ctx.save();
+      ctx.globalAlpha = Math.max(0.05, Math.min(1, num(state.underlayAlpha, 0.45)));
+      ctx.setTransform(v.dpr * (Sx[0] - S0[0]), v.dpr * (Sx[1] - S0[1]), v.dpr * (Sy[0] - S0[0]), v.dpr * (Sy[1] - S0[1]), v.dpr * S0[0], v.dpr * S0[1]);
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0);
+      ctx.restore();
+    }
+  }
+  if (v.id === "iso" && !bare) {
+    const o = P([0, 0, 0]);
+    for (const [vec, lab] of [[[40, 0, 0], "X"], [[0, 40, 0], "Y"], [[0, 0, 40], "Z"]]) {
+      const e = P(vec); ctx.strokeStyle = colors.muted; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(o[0], o[1]); ctx.lineTo(e[0], e[1]); ctx.stroke();
+      ctx.fillStyle = colors.muted; ctx.font = mono; ctx.fillText(lab, e[0] + 3, e[1] - 3);
+    }
+  }
+
+  // keep-outs (the 3D view draws them with the tubes, by depth)
+  if (v.id !== "iso" && !bare) for (const ko of state.keepouts) drawKeepout(ctx, ko, P);
+
+  // drawing planes (draw tool only)
+  if (ui.tool === "draw" && v.id !== "iso") {
+    for (const other of VIEWS) {
+      if (other.id === "iso" || other.id === v.id) continue;
+      const pl = planeLine(v, other);
+      ctx.strokeStyle = colors.brass; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      if (pl.vertical) { ctx.moveTo(pl.s, 0); ctx.lineTo(pl.s, H); } else { ctx.moveTo(0, pl.s); ctx.lineTo(W, pl.s); }
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = colors.brass; ctx.font = "600 " + mono;
+      const label = `${VIEW_NAME[other.id]} plane ${AXIS[other.axis]} ${fmt(num(state.planes[other.id]), 1)}`;
+      if (pl.vertical) ctx.fillText(label, Math.min(pl.s + 5, W - 150), H - 26); else ctx.fillText(label, 10, Math.max(pl.s - 6, 40));
+    }
+  }
+
+  // tubes
+  const od = num(state.stock.od, 3);
+  const shown = state.tubes.filter((t) => !t.hidden);
+  const order = shown.filter((t) => t.id !== ui.sel).concat(shown.filter((t) => t.id === ui.sel));
+  if (v.id === "iso") drawSceneByDepth(ctx, v, b, P, shown, od);
+  for (const t of order) {
+    const r = results.get(t.id); if (!r) continue;
+    const col = TUBE_COLORS[t.color % TUBE_COLORS.length];
+    const isSel = t.id === ui.sel;
+    if (v.id !== "iso" && r.samples.length >= 2) {
+      const copies = t.mirror ? [r.samples, r.samples.map(mirrorPt)] : [r.samples];
+      copies.forEach((pts, ci) => {
+        const sp = pts.map(P), w = Math.max(2.2, od * v.scale);
+        const cols = ui.strFresh ? strengthCols(t, ci === 1) : null;
+        // the mirrored copy is dimmed; strength colours are drawn piece by piece, so dim by mixing, not by alpha
+        ctx.globalAlpha = ci && !cols ? 0.55 : 1;
+        ctx.strokeStyle = isSel ? colors.brass : colors["tube-edge"]; ctx.lineWidth = w + (isSel ? 3 : 2);
+        strokePath(ctx, sp); ctx.stroke();
+        if (cols) {
+          ctx.lineWidth = w;
+          for (let i = 1; i < sp.length; i++) {
+            ctx.strokeStyle = ci ? mixHex(cols[i - 1], colors["view-bg"], 0.45) : cols[i - 1];
+            ctx.beginPath(); ctx.moveTo(sp[i - 1][0], sp[i - 1][1]); ctx.lineTo(sp[i][0], sp[i][1]); ctx.stroke();
+          }
+        } else { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.stroke(); }
+        ctx.globalAlpha = 1;
+      });
+    }
+    if (r.hits.length) {
+      ctx.fillStyle = colors.bad;
+      for (let i = 0; i < r.hits.length; i += 2) { const q = P(r.hits[i]); ctx.beginPath(); ctx.arc(q[0], q[1], Math.max(2.5, od * v.scale * 0.6), 0, Math.PI * 2); ctx.fill(); }
+    }
+    if (isSel) {
+      const cp = t.pts.map((p) => P(p.map(Number)));
+      ctx.strokeStyle = colors.brass; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+      strokePath(ctx, cp); ctx.stroke(); ctx.setLineDash([]);
+      if (v.edit) cp.forEach((q, i) => {
+        ctx.beginPath(); ctx.arc(q[0], q[1], i === ui.selPt ? 6.5 : 5, 0, Math.PI * 2);
+        ctx.fillStyle = i === ui.selPt ? colors.brass : colors["view-bg"]; ctx.fill();
+        ctx.strokeStyle = colors.brass; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = colors.ink; ctx.font = "600 " + mono; ctx.fillText(String(i + 1), q[0] + 8, q[1] - 7);
+      });
+    }
+  }
+
+  if (ui.strFresh) drawStrengthOverlay(ctx, v, P);
+
+  // draw tool: rubber band from the last placed corner to the mouse
+  const hv = ui.hover;
+  if (ui.tool === "draw" && hv) {
+    const t = ui.drawing && tubeById(ui.drawing);
+    const last = t && t.pts.length ? t.pts[t.pts.length - 1] : null;
+    const q = P(hv.p);
+    if (last) {
+      const a = P(last);
+      ctx.strokeStyle = colors.brass; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(q[0], q[1]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (v.id === hv.vid || hv.snap) {
+      ctx.strokeStyle = hv.snap ? colors.ok : colors.brass; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(q[0], q[1], hv.snap ? 8 : 5, 0, Math.PI * 2); ctx.stroke();
+      if (v.id === hv.vid && !hv.snap) { ctx.beginPath(); ctx.moveTo(q[0] - 12, q[1]); ctx.lineTo(q[0] + 12, q[1]); ctx.moveTo(q[0], q[1] - 12); ctx.lineTo(q[0], q[1] + 12); ctx.stroke(); }
+    }
+  }
+
+  // measure tool: the ruler line, its length and its two in-plane components
+  if (ui.tool === "measure" && v.edit) {
+    const m = ui.measure && ui.measure.vid === v.id ? ui.measure : null;
+    const end = m && (m.b || (hv && hv.vid === v.id ? hv.p : null));
+    if (m && end) drawRuler(ctx, v, P, m.a, end, !m.b);
+    else if (m) { const a = P(m.a); ctx.fillStyle = colors.ink; ctx.beginPath(); ctx.arc(a[0], a[1], 3.5, 0, Math.PI * 2); ctx.fill(); }
+    if (hv && hv.vid === v.id) {
+      const q = P(hv.p);
+      ctx.strokeStyle = hv.snap ? colors.ok : colors.ink; ctx.lineWidth = 1.5;
+      if (hv.snap) { ctx.beginPath(); ctx.arc(q[0], q[1], 8, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(q[0] - 12, q[1]); ctx.lineTo(q[0] + 12, q[1]); ctx.moveTo(q[0], q[1] - 12); ctx.lineTo(q[0], q[1] + 12); ctx.stroke();
+    }
+  }
+
+  // angle tool: the two picked segments and the angle between them
+  if (ui.tool === "angle" && v.edit) {
+    const seg = (s, col, w) => {
+      const a = P(s.p0), b = P(s.p1);
+      ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.lineCap = "butt";
+    };
+    const ag = ui.angle, hs = ui.angleHover;
+    if (hs && !(ag && ag.b)) seg(hs, colors.ok, 5);
+    if (ag) { seg(ag.a, colors.brass, 5); if (ag.b) seg(ag.b, colors.ok, 5); }
+    if (ag && ag.res && ag.vid === v.id) drawAngleSketch(ctx, v, P, ag);
+  }
+
+  // coordinate readout
+  if (hv && hv.vid === v.id) {
+    const p = hv.p;
+    const t = ui.tool === "draw" && ui.drawing && tubeById(ui.drawing);
+    const last = t && t.pts.length ? t.pts[t.pts.length - 1] : null;
+    let text;
+    if (hv.plain && v.edit) {
+      const ra = axisOf(v.r), ua = axisOf(v.u);
+      text = hv.moveBy ? `moved ${AXIS[ra]} ${fmt(hv.moveBy[ra])}  ${AXIS[ua]} ${fmt(hv.moveBy[ua])}` : `${AXIS[ra]} ${fmt(p[ra])}  ${AXIS[ua]} ${fmt(p[ua])}`;
+    } else text = `X ${fmt(p[0])}  Y ${fmt(p[1])}  Z ${fmt(p[2])}`;
+    if (last) text += `   ·   ${fmt(V.len(V.sub(p, last)))} mm`;
+    if (hv.snap) text += `   ·   on ${hv.snap}`;
+    ctx.font = mono;
+    const w = ctx.measureText(text).width + 14;
+    ctx.fillStyle = colors["view-bg"]; ctx.globalAlpha = 0.9; ctx.fillRect(6, H - 26, w, 20); ctx.globalAlpha = 1;
+    ctx.fillStyle = hv.snap ? colors.ok : colors.ink; ctx.fillText(text, 13, H - 12);
+  }
+}
+function drawAll() { readColors(); sizeCanvases(); ui.strFresh = strengthFresh(); for (const v of VIEWS) drawView(v); }
+
+/** In-plane distance between two points in an ortho view: the depth axis is ignored. */
+function measureIn(v, a, b) {
+  const ra = axisOf(v.r), ua = axisOf(v.u), dh = b[ra] - a[ra], dv = b[ua] - a[ua];
+  return { ra, ua, dh, dv, d: Math.hypot(dh, dv) };
+}
+function drawRuler(ctx, v, P, a3, b3, live) {
+  const m = measureIn(v, a3, b3), a = P(a3), b = P(b3);
+  const mono = "11px 'IBM Plex Mono', monospace";
+  // dashed legs along the two view axes, so a height or a length can be read off directly
+  if (Math.abs(m.dh) > 0.05 && Math.abs(m.dv) > 0.05) {
+    ctx.strokeStyle = colors.muted; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.strokeStyle = colors.ink; ctx.lineWidth = 1.5; ctx.setLineDash(live ? [6, 4] : []);
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.setLineDash([]);
+  // end ticks across the line
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L * 7, ny = (b[0] - a[0]) / L * 7;
+  ctx.beginPath();
+  for (const q of live ? [a] : [a, b]) { ctx.moveTo(q[0] - nx, q[1] - ny); ctx.lineTo(q[0] + nx, q[1] + ny); }
+  ctx.stroke();
+  const l1 = `${fmt(m.d)} mm`, l2 = `${AXIS[m.ra]} ${fmt(Math.abs(m.dh))}  ·  ${AXIS[m.ua]} ${fmt(Math.abs(m.dv))}`;
+  ctx.font = "600 13px 'IBM Plex Mono', monospace"; const w1 = ctx.measureText(l1).width;
+  ctx.font = mono; const w2 = ctx.measureText(l2).width;
+  const w = Math.max(w1, w2) + 14, h = 36;
+  let lx = (a[0] + b[0]) / 2 + 12, ly = (a[1] + b[1]) / 2 - h - 6;
+  lx = Math.max(6, Math.min(v.W - w - 6, lx)); ly = Math.max(40, Math.min(v.H - h - 32, ly));
+  ctx.fillStyle = colors["view-bg"]; ctx.globalAlpha = 0.92; ctx.fillRect(lx, ly, w, h); ctx.globalAlpha = 1;
+  ctx.strokeStyle = colors.ink; ctx.lineWidth = 1; ctx.strokeRect(lx + 0.5, ly + 0.5, w - 1, h - 1);
+  ctx.fillStyle = colors.ink; ctx.font = "600 13px 'IBM Plex Mono', monospace"; ctx.fillText(l1, lx + 7, ly + 15);
+  ctx.fillStyle = colors.muted; ctx.font = mono; ctx.fillText(l2, lx + 7, ly + 29);
+}
+
+/** The angle sketch: two lines at the true angle where the tubes cross (or pass closest), all four wedges labelled,
+ * the acute ones shaded. Drawn flat on screen and turned to match how the tubes lie in this view; the on-screen angle
+ * of a 3D line pair is not the real angle, so the sketch is never a plain projection. A and B match the highlighted segments. */
+function drawAngleSketch(ctx, v, P, ag) {
+  const r = ag.res, R = 54, mono = "11px 'IBM Plex Mono', monospace", bold = "600 12px 'IBM Plex Mono', monospace";
+  const clamp = (x, lo, hi) => (hi < lo ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, x)));
+  const mid = (s) => { const a = P(s.p0), b = P(s.p1); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; };
+  const dir = (s) => { const a = P(s.p0), b = P(s.p1); return [b[0] - a[0], b[1] - a[1]]; };
+  const cols = [colors.brass, colors.ok], segs = [ag.a, ag.b];
+  const pin = r.pa && r.pb ? [P(r.pa), P(r.pb)] : null;
+  let ax, ay;
+  if (pin) { ax = (pin[0][0] + pin[1][0]) / 2; ay = (pin[0][1] + pin[1][1]) / 2; }
+  else { const ma = mid(ag.a), mb = mid(ag.b); ax = (ma[0] + mb[0]) / 2; ay = (ma[1] + mb[1]) / 2; }
+  ax = clamp(ax, R + 16, v.W - R - 16); ay = clamp(ay, R + 30, v.H - R - 34);
+
+  if (pin) {
+    // where the lines really pass closest, and a dashed run from the tube end when that is beyond the segment
+    [r.onA, r.onB].forEach((on, k) => {
+      const q = pin[k], s = segs[k], e0 = P(s.p0), e1 = P(s.p1);
+      const e = Math.hypot(e0[0] - q[0], e0[1] - q[1]) < Math.hypot(e1[0] - q[0], e1[1] - q[1]) ? e0 : e1;
+      ctx.strokeStyle = cols[k]; ctx.fillStyle = cols[k]; ctx.lineWidth = 1.5;
+      if (!on) { ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(e[0], e[1]); ctx.lineTo(q[0], q[1]); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.beginPath(); ctx.arc(q[0], q[1], 3, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
+  if (!r.parallel) {
+    const w = CageGeo.angleWedges(dir(ag.a), dir(ag.b), r.directed);
+    // disc behind the sketch, so it reads over the tubes and grid
+    ctx.fillStyle = colors["view-bg"]; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(ax, ay, R + 6, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = colors.muted; ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
+    const rw = R * 0.42;
+    for (const q of w.wedges) {
+      if (q.acute) { ctx.fillStyle = colors.ink; ctx.globalAlpha = 0.22; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.arc(ax, ay, rw, q.from, q.to); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }
+      ctx.strokeStyle = q.acute ? colors.ink : colors.muted; ctx.lineWidth = q.acute ? 1.8 : 1;
+      ctx.beginPath(); ctx.arc(ax, ay, rw, q.from, q.to); ctx.stroke();
+    }
+    // the two lines, arrow on each forward end (corner n towards n + 1)
+    [w.a, w.b].forEach((ang, k) => {
+      const c = Math.cos(ang), s = Math.sin(ang), ex = ax + c * R, ey = ay + s * R;
+      ctx.strokeStyle = cols[k]; ctx.fillStyle = cols[k]; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(ax - c * R, ay - s * R); ctx.lineTo(ex, ey); ctx.stroke(); ctx.lineCap = "butt";
+      ctx.beginPath(); ctx.moveTo(ex + c * 3, ey + s * 3); ctx.lineTo(ex - c * 9 - s * 5, ey - s * 9 + c * 5); ctx.lineTo(ex - c * 9 + s * 5, ey - s * 9 - c * 5); ctx.closePath(); ctx.fill();
+      const cx = ex + c * 13, cy = ey + s * 13;
+      ctx.fillStyle = colors["view-bg"]; ctx.beginPath(); ctx.arc(cx, cy, 7.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = cols[k]; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = colors.ink; ctx.font = bold; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(k ? "B" : "A", cx, cy + 0.5);
+    });
+    // each wedge's angle: inside when there is room, otherwise pushed out past the arrow chips
+    for (const q of w.wedges) {
+      const text = `${fmt(q.deg)}°`, mid = (q.from + q.to) / 2, c = Math.cos(mid), s = Math.sin(mid);
+      ctx.font = q.acute ? bold : mono;
+      const tw = ctx.measureText(text).width + 8, th = 16;
+      const rl = q.deg >= 55 ? R * 0.72 : R + 30 + Math.abs(c) * tw / 2 + Math.abs(s) * th / 2;
+      const lx = ax + c * rl, ly = ay + s * rl;
+      ctx.fillStyle = colors["view-bg"]; ctx.globalAlpha = 0.85; ctx.fillRect(lx - tw / 2, ly - th / 2, tw, th); ctx.globalAlpha = 1;
+      ctx.fillStyle = q.acute ? colors.ink : colors.muted; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text, lx, ly + 0.5);
+    }
+    ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+  }
+
+  // key: the two angles, how the lines relate, and which tube segment is A and B
+  const name = (s) => `${s.name}${s.mirrored ? " (mirror)" : ""} ${s.i}→${s.i + 1}`;
+  const l1 = `${fmt(r.acute)}° / ${fmt(r.obtuse)}°`;
+  const l2 = r.parallel ? "parallel" : r.skew ? `skew, ${fmt(r.gap)} mm apart` : r.onA && r.onB ? "lines meet" : "lines meet beyond a tube end";
+  const keys = [`A  ${name(ag.a)}`, `B  ${name(ag.b)}`];
+  ctx.font = "600 13px 'IBM Plex Mono', monospace"; let tw = ctx.measureText(l1).width;
+  ctx.font = mono; tw = Math.max(tw, ctx.measureText(l2).width, ...keys.map((t) => ctx.measureText(t).width + 16));
+  const bw = tw + 14, bh = 80, gap = r.parallel ? 12 : R + 38;
+  let bx = ax + gap; if (bx + bw > v.W - 6) bx = ax - gap - bw;
+  bx = clamp(bx, 6, v.W - bw - 6); const by = clamp(ay - bh / 2, 40, v.H - bh - 32);
+  ctx.fillStyle = colors["view-bg"]; ctx.globalAlpha = 0.92; ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = 1;
+  ctx.strokeStyle = colors.ink; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+  ctx.fillStyle = colors.ink; ctx.font = "600 13px 'IBM Plex Mono', monospace"; ctx.fillText(l1, bx + 7, by + 16);
+  ctx.fillStyle = colors.muted; ctx.font = mono; ctx.fillText(l2, bx + 7, by + 31);
+  keys.forEach((t, k) => {
+    ctx.fillStyle = cols[k]; ctx.fillRect(bx + 7, by + 42 + k * 15, 8, 8);
+    ctx.fillStyle = colors.ink; ctx.fillText(t, bx + 21, by + 50 + k * 15);
+  });
+}
+
+/** Where `other` view's drawing plane crosses view v, in v's screen coordinates. */
+function planeLine(v, other) {
+  const k = other.axis, val = num(state.planes[other.id]);
+  if (axisOf(v.r) === k) return { vertical: true, s: v.W / 2 + (val * Math.sign(v.r[k]) - v.cx) * v.scale, axis: k };
+  return { vertical: false, s: v.H / 2 - (val * Math.sign(v.u[k]) - v.cy) * v.scale, axis: k };
+}
+
+// ---------- hit testing and snapping ----------
+function localXY(v, e) { const r = v.cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+function distToSeg(px, py, a, c) {
+  const dx = c[0] - a[0], dy = c[1] - a[1], L2 = dx * dx + dy * dy;
+  let t = L2 ? ((px - a[0]) * dx + (py - a[1]) * dy) / L2 : 0; t = Math.max(0, Math.min(1, t));
+  return { d: Math.hypot(px - (a[0] + t * dx), py - (a[1] + t * dy)), t };
+}
+function hitHandle(v, x, y) {
+  const t = selTube(); if (!t || t.hidden || !v.edit) return -1;
+  const b = basis(v); let best = -1, bd = 11;
+  t.pts.forEach((p, i) => { const q = proj(v, b, p.map(Number)); const d = Math.hypot(q[0] - x, q[1] - y); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+function hitTube(v, x, y) {
+  const b = basis(v); let best = null, bd = 9;
+  const tryTube = (t) => {
+    if (t.hidden) return;
+    const r = results.get(t.id); if (!r || r.samples.length < 2) return;
+    const copies = t.mirror ? [[r.samples, false], [r.samples.map(mirrorPt), true]] : [[r.samples, false]];
+    for (const [pts, mirrored] of copies) {
+      const sp = pts.map((p) => proj(v, b, p));
+      for (let i = 1; i < sp.length; i++) { const h = distToSeg(x, y, sp[i - 1], sp[i]); if (h.d < bd) { bd = h.d; best = { id: t.id, mirrored }; } }
+    }
+  };
+  const s = selTube(); if (s) tryTube(s); // the selected tube wins ties
+  if (!best) state.tubes.forEach((t) => t !== s && tryTube(t));
+  return best;
+}
+function hitPlane(v, x, y) {
+  if (ui.tool !== "draw" || v.id === "iso") return null;
+  for (const other of VIEWS) {
+    if (other.id === "iso" || other.id === v.id) continue;
+    const pl = planeLine(v, other);
+    if (Math.abs((pl.vertical ? x : y) - pl.s) < 6) return { other, vertical: pl.vertical };
+  }
+  return null;
+}
+/** Snap target near the mouse: another tube's corner first, then any point along another tube.
+ * Flat views stack tubes at different depths on top of each other, so only targets within SNAP_DEPTH mm
+ * of `depth` count, unless `anyDepth` (Shift held). */
+const SNAP_DEPTH = 15;
+function snapAt(v, x, y, excludeId, depth, anyDepth) {
+  const b = basis(v);
+  const near = (p) => anyDepth || depth === undefined || v.axis === undefined || Math.abs(p[v.axis] - depth) <= SNAP_DEPTH;
+  let best = null;
+  for (const t of state.tubes) {
+    if (t.id === excludeId || t.hidden) continue;
+    const copies = t.mirror ? [[t.pts, ""], [t.pts.map(mirrorPt), " (mirror)"]] : [[t.pts, ""]];
+    for (const [pts, tag] of copies) pts.forEach((p, i) => {
+      if (!near(p)) return;
+      const q = proj(v, b, p.map(Number)), d = Math.hypot(q[0] - x, q[1] - y);
+      if (d < 10 && (!best || d < best.d)) best = { d, p: p.map(Number), label: `${t.name}${tag} point ${i + 1}` };
+    });
+  }
+  if (best) return best;
+  for (const t of state.tubes) {
+    if (t.id === excludeId || t.hidden) continue;
+    const r = results.get(t.id); if (!r || r.samples.length < 2) continue;
+    const copies = t.mirror ? [[r.samples, ""], [r.samples.map(mirrorPt), " (mirror)"]] : [[r.samples, ""]];
+    for (const [pts, tag] of copies) {
+      const sp = pts.map((p) => proj(v, b, p));
+      for (let i = 1; i < sp.length; i++) {
+        const h = distToSeg(x, y, sp[i - 1], sp[i]);
+        if (h.d >= 7 || (best && h.d >= best.d)) continue;
+        const p = V.add(pts[i - 1], V.mul(V.sub(pts[i], pts[i - 1]), h.t)).map(r1);
+        if (near(p)) best = { d: h.d, p, label: `${t.name}${tag}` };
+      }
+    }
+  }
+  return best;
+}
+function candidateAt(v, x, y, excludeId, anyDepth) {
+  const s = snapAt(v, x, y, excludeId, num(state.planes[v.id]), anyDepth);
+  return s ? { p: s.p, snap: s.label } : { p: planePoint(v, x, y), snap: null };
+}
+
+// ---------- tools ----------
+const HINTS = {
+  select: "<b>Drag a tube</b> to move it. <b>Drag its round handles</b> to reshape it: handles snap onto nearby tubes at the same depth (green ring), hold <kbd>Shift</kbd> to snap at any depth. Double-click a segment to add a corner, <kbd>Del</kbd> removes the selected corner. Arrow keys nudge (<kbd>Shift</kbd> = ×10). Drag empty space to pan, scroll to zoom.",
+  measure: "<b>Click</b> in Top, Side or Front to start measuring, <b>click again</b> to end. The length is measured on that view's plane, with its two parts along the view's axes. Clicks snap to tube corners and tubes (green ring), otherwise to the grid. Hold <kbd>Shift</kbd> for a straight horizontal or vertical line. A third click starts a new measurement, <kbd>Esc</kbd> clears it. Drag to pan, scroll to zoom.",
+  angle: "<b>Click a tube segment</b> in Top, Side or Front, then <b>click a second one</b>. The angle is the true 3D angle between the two straight segments (not the angle on screen), shown as acute / obtuse. A sketch where the tubes cross draws both lines, <b>A</b> and <b>B</b> matching the two highlighted segments, with arrows in corner order (2→3). The four angles are written in their own wedges and the acute ones are shaded. It also says if the lines are parallel or skew (they pass each other without touching). Mirrored copies can be picked too. A third click starts again, <kbd>Esc</kbd> clears it. Drag to pan, scroll to zoom.",
+  draw: "<b>Click</b> in Top, Side or Front to place corners. Clicks near another tube at about the same depth snap onto it (green ring); hold <kbd>Shift</kbd> to snap to a tube at any depth. <b>Double-click</b> or <kbd>Enter</kbd> finishes the tube, <kbd>Backspace</kbd> removes the last corner, <kbd>Esc</kbd> stops drawing. New corners sit on that view's drawing plane: <b>drag the dashed lines</b> in the other views to move it. Snapping to a tube moves the plane there.",
+};
+HINTS.mount = "<b>Click a tube corner</b> in Top, Side or Front to fix it to the car (a dark foot appears) or free it. Open circles are corners you can mount. Every tube meeting at that corner changes together, and a mirrored tube changes on both sides. Mounts start on the corners that rest on a keep-out marked as a mount surface (Car keep-outs tab). Drag to pan, scroll to zoom.";
+// one line under the tool bar while drawing or measuring; the full tips when "?" is on
+const HINTS_SHORT = {
+  mount: "Click a tube corner to mount it to the car or free it. <kbd>Esc</kbd> goes back to Select.",
+  measure: "Click two points in Top, Side or Front. <kbd>Shift</kbd> keeps it level or plumb, <kbd>Esc</kbd> clears.",
+  angle: "Click two tube segments in Top, Side or Front for the angle between them. <kbd>Esc</kbd> clears.",
+  draw: "Click to place corners. Double-click or <kbd>Enter</kbd> finishes, <kbd>Backspace</kbd> undoes a corner, <kbd>Esc</kbd> stops.",
+};
+const UI_KEY = "cage-bender.ui";
+const uiPrefs = (() => { try { return JSON.parse(localStorage.getItem(UI_KEY)) || {}; } catch (e) { return {}; } })();
+function saveUiPrefs() { try { localStorage.setItem(UI_KEY, JSON.stringify(uiPrefs)); } catch (e) { /* storage blocked */ } }
+function renderHint() {
+  const text = uiPrefs.tips ? HINTS[ui.tool] : HINTS_SHORT[ui.tool] || "";
+  $("toolHint").innerHTML = text; $("toolHint").hidden = !text;
+  $("hintBtn").setAttribute("aria-pressed", String(!!uiPrefs.tips));
+}
+function setTool(tool) {
+  if (tool !== "draw") finishDrawing(true);
+  ui.tool = tool;
+  $("toolSelect").setAttribute("aria-pressed", String(tool === "select"));
+  $("toolDraw").setAttribute("aria-pressed", String(tool === "draw"));
+  $("toolMeasure").setAttribute("aria-pressed", String(tool === "measure"));
+  $("toolAngle").setAttribute("aria-pressed", String(tool === "angle"));
+  $("toolMount").setAttribute("aria-pressed", String(tool === "mount"));
+  if (tool !== "angle") ui.angleHover = null;
+  renderHint();
+  for (const v of VIEWS) { v.cv.classList.toggle("drawing", tool === "draw" && v.edit); v.cv.classList.toggle("measuring", tool === "measure" && v.edit); v.cv.classList.toggle("angling", tool === "angle" && v.edit); v.cv.classList.toggle("mounting", tool === "mount" && v.edit); }
+  drawAll();
+}
+function finishDrawing(quiet) {
+  const t = ui.drawing && tubeById(ui.drawing);
+  ui.drawing = null;
+  if (!t) return;
+  if (t.pts.length < 2) {
+    state.tubes.splice(state.tubes.indexOf(t), 1);
+    ui.sel = state.tubes[0]?.id || null; ui.selPt = null;
+    changed(); renderAll();
+    return;
+  }
+  ui.selPt = null;
+  changed(); renderAll();
+  if (!quiet) toast(`${t.name} finished. Click again to start another tube.`);
+}
+/** Ruler point under the mouse: a tube corner or tube at any depth, else the grid. Shift keeps it level or plumb with the start. */
+function measurePoint(v, x, y, lock) {
+  const s = snapAt(v, x, y, null, undefined, true);
+  const p = s ? s.p.slice() : planePoint(v, x, y);
+  const m = ui.measure;
+  if (lock && m && m.vid === v.id && !m.b) {
+    const k = measureIn(v, m.a, p);
+    if (Math.abs(k.dh) >= Math.abs(k.dv)) p[k.ua] = m.a[k.ua]; else p[k.ra] = m.a[k.ra];
+    return { p, snap: null };
+  }
+  return { p, snap: s ? s.label : null };
+}
+function measureClick(v, x, y, lock) {
+  const m = ui.measure, c = measurePoint(v, x, y, lock);
+  if (!m || m.b || m.vid !== v.id) ui.measure = { vid: v.id, a: c.p, b: null };
+  else if (measureIn(v, m.a, c.p).d > 0.05) m.b = c.p;
+  drawAll();
+}
+/** The straight segment under the mouse, as 3D end points (mirrored copies included). The selected tube wins ties. */
+function hitSegment(v, x, y) {
+  const b = basis(v); let best = null, bd = 9;
+  const tryTube = (t) => {
+    if (t.hidden) return;
+    const r = results.get(t.id); if (!r || r.P.length < 2) return;
+    const copies = t.mirror ? [[r.P, false], [r.P.map(mirrorPt), true]] : [[r.P, false]];
+    for (const [pts, mirrored] of copies) {
+      for (let i = 1; i < pts.length; i++) {
+        const h = distToSeg(x, y, proj(v, b, pts[i - 1]), proj(v, b, pts[i]));
+        if (h.d < bd) { bd = h.d; best = { id: t.id, name: t.name, mirrored, i, p0: pts[i - 1], p1: pts[i] }; }
+      }
+    }
+  };
+  const s = selTube(); if (s) tryTube(s);
+  if (!best) state.tubes.forEach((t) => t !== s && tryTube(t));
+  return best;
+}
+function angleClick(v, x, y) {
+  const seg = hitSegment(v, x, y), a = ui.angle;
+  if (!seg) { if (a) { ui.angle = null; drawAll(); } return; }
+  if (!a || a.b) ui.angle = { vid: v.id, a: seg, b: null, res: null };
+  else if (seg.id === a.a.id && seg.mirrored === a.a.mirrored && seg.i === a.a.i) toast("That is the same segment. Pick a different one.");
+  else {
+    const res = CageGeo.segmentAngle(a.a.p0, a.a.p1, seg.p0, seg.p1);
+    if (!res) { toast("That segment has no length."); return; }
+    ui.angle = { vid: v.id, a: a.a, b: seg, res };
+    toast(`${a.a.name} and ${seg.name}: ${fmt(res.acute)}° / ${fmt(res.obtuse)}°${res.parallel ? ", parallel" : res.skew ? `, skew (${fmt(res.gap)} mm apart)` : ""}`);
+  }
+  drawAll();
+}
+function setPlaneFrom(v, p) { if (v.axis !== undefined) state.planes[v.id] = r1(p[v.axis]); }
+function drawClick(v, x, y, anyDepth) {
+  let t = ui.drawing && tubeById(ui.drawing);
+  const c = candidateAt(v, x, y, t ? t.id : null, anyDepth);
+  if (t) {
+    if (V.len(V.sub(t.pts[t.pts.length - 1], c.p)) < 0.5) { finishDrawing(); return; }
+    pushUndo();
+    t.pts.push(c.p);
+  } else {
+    pushUndo();
+    t = { id: uid("t"), name: `Tube ${state.tubes.length + 1}`, color: nextColor(), mirror: false, pts: [c.p] };
+    state.tubes.push(t);
+    ui.drawing = t.id; ui.sel = t.id;
+  }
+  if (c.snap) setPlaneFrom(v, c.p);
+  ui.selPt = t.pts.length - 1;
+  changed(); renderAll();
+}
+
+// ---------- view interaction ----------
+let drag = null;
+function nudgeUndoGate() {
+  const now = Date.now();
+  if (!ui.lastNudge || now - ui.lastNudge > 800) pushUndo();
+  ui.lastNudge = now;
+}
+for (const v of VIEWS) {
+  const cv = v.cv;
+  cv.addEventListener("contextmenu", (e) => e.preventDefault());
+  cv.addEventListener("pointerdown", (e) => {
+    cv.setPointerCapture(e.pointerId);
+    ui.viewFocus = true;
+    if (v.edit) ui.lastView = v.id;
+    const [x, y] = localXY(v, e);
+    const pan = { mode: v.id === "iso" ? "orbit" : "pan", v, sx: x, sy: y, lx: x, ly: y, moved: false };
+    if (e.button !== 0) { drag = { ...pan, mode: v.id === "iso" ? "orbit" : "pan" }; cv.classList.add("dragging"); return; }
+    if (ui.tool === "draw") {
+      // A tube under the mouse wins over a plane line; a plane line that is clicked (not dragged) still places a corner.
+      const pl = v.edit && !snapAt(v, x, y, ui.drawing, num(state.planes[v.id]), e.shiftKey) ? hitPlane(v, x, y) : null;
+      drag = pl ? { mode: "plane", v, pl, sx: x, sy: y, moved: false, undo: false, click: true } : { ...pan, click: true };
+    } else if (ui.tool === "measure" || ui.tool === "angle" || ui.tool === "mount") {
+      drag = { ...pan, click: true };
+    } else {
+      const h = hitHandle(v, x, y);
+      const tb = h < 0 && v.edit ? hitTube(v, x, y) : null;
+      if (h >= 0) {
+        pushUndo(); ui.selPt = h;
+        drag = { mode: "point", v, idx: h, sx: x, sy: y, p0: selTube().pts[h].map(Number), moved: false };
+        renderAll();
+      } else if (tb) {
+        if (tb.id !== ui.sel) { ui.sel = tb.id; ui.selPt = null; renderAll(); }
+        pushUndo();
+        drag = { mode: "tube", v, sx: x, sy: y, p0: selTube().pts.map((p) => p.map(Number)), mirrored: tb.mirrored, moved: false };
+      } else {
+        drag = { ...pan, click: true };
+      }
+    }
+    cv.classList.add("dragging");
+  });
+  cv.addEventListener("pointermove", (e) => {
+    const [x, y] = localXY(v, e);
+    if (!drag || drag.v !== v) {
+      // hover feedback
+      cv.classList.remove("over-pt", "over-tube", "over-plane", "over-plane-h");
+      if (ui.tool === "select" && v.edit) {
+        if (hitHandle(v, x, y) >= 0) cv.classList.add("over-pt"); else if (hitTube(v, x, y)) cv.classList.add("over-tube");
+        ui.hover = { vid: v.id, p: planePoint(v, x, y), snap: null, plain: true };
+        drawView(v);
+      } else if (ui.tool === "draw" && v.edit) {
+        ui.hover = { vid: v.id, ...candidateAt(v, x, y, ui.drawing, e.shiftKey) };
+        const pl = !ui.hover.snap && hitPlane(v, x, y);
+        if (pl) cv.classList.add(pl.vertical ? "over-plane" : "over-plane-h");
+        drawAll();
+      } else if (ui.tool === "measure" && v.edit) {
+        ui.hover = { vid: v.id, ...measurePoint(v, x, y, e.shiftKey), plain: true };
+        drawView(v);
+      } else if (ui.tool === "angle" && v.edit) {
+        const h = hitSegment(v, x, y);
+        ui.angleHover = h;
+        if (h) cv.classList.add("over-tube");
+        drawAll();
+      }
+      return;
+    }
+    if (Math.hypot(x - drag.sx, y - drag.sy) > 3) drag.moved = true;
+    if (!drag.moved) return;
+    const b = basis(v);
+    if (drag.mode === "point") {
+      const t = selTube(); if (!t) return;
+      const s = snapAt(v, x, y, t.id, drag.p0[v.axis], e.shiftKey);
+      let p;
+      if (s) p = s.p;
+      else {
+        const dx = (x - drag.sx) / v.scale, dy = -(y - drag.sy) / v.scale;
+        p = V.add(drag.p0, V.add(V.mul(b.r, dx), V.mul(b.u, dy)));
+        const sn = num(state.snap);
+        for (let k = 0; k < 3; k++) if (k !== v.axis) p[k] = sn > 0 ? Math.round(p[k] / sn) * sn : r1(p[k]);
+        p = p.map((q) => Math.round(q * 1000) / 1000);
+      }
+      t.pts[drag.idx] = p;
+      ui.hover = { vid: v.id, p, snap: s ? s.label : null };
+      scheduleRender();
+    } else if (drag.mode === "tube") {
+      const t = selTube(); if (!t) return;
+      const sn = num(state.snap);
+      const g = (q) => (sn > 0 ? Math.round(q / sn) * sn : r1(q));
+      const dx = (x - drag.sx) / v.scale, dy = -(y - drag.sy) / v.scale;
+      let d = V.add(V.mul(b.r, dx), V.mul(b.u, dy)).map(g);
+      if (drag.mirrored) d = [d[0], -d[1], d[2]];
+      t.pts = drag.p0.map((p) => V.add(p, d).map((q) => Math.round(q * 1000) / 1000));
+      ui.hover = { vid: v.id, p: t.pts[0], snap: null, plain: true, moveBy: d };
+      scheduleRender();
+    } else if (drag.mode === "plane") {
+      if (!drag.undo) { pushUndo(); drag.undo = true; }
+      const k = drag.pl.other.axis, sn = num(state.snap);
+      let val = drag.pl.vertical ? toWorldX(v, x) * Math.sign(v.r[k]) : toWorldY(v, y) * Math.sign(v.u[k]);
+      val = sn > 0 ? Math.round(val / sn) * sn : r1(val);
+      state.planes[drag.pl.other.id] = val;
+      drawAll();
+    } else if (drag.mode === "pan") {
+      v.cx -= (x - drag.lx) / v.scale; v.cy += (y - drag.ly) / v.scale;
+      drag.lx = x; drag.ly = y; drawView(v);
+    } else {
+      v.yaw -= (x - drag.lx) * 0.01;
+      v.pitch = Math.max(-89 * D2R, Math.min(89 * D2R, v.pitch + (y - drag.ly) * 0.01));
+      drag.lx = x; drag.ly = y; drawView(v);
+    }
+  });
+  const end = (e) => {
+    if (!drag || drag.v !== v) return;
+    const [x, y] = localXY(v, e);
+    cv.classList.remove("dragging");
+    const d = drag; drag = null;
+    if (d.mode === "point" || d.mode === "tube") {
+      if (d.moved) { changed(); renderAll(); } else undoStack.pop();
+    } else if (d.mode === "plane" && d.moved) {
+      changed();
+    } else if (d.click && !d.moved) {
+      if (ui.tool === "draw" && v.edit) drawClick(v, x, y, e.shiftKey);
+      else if (ui.tool === "measure" && v.edit) measureClick(v, x, y, e.shiftKey);
+      else if (ui.tool === "angle" && v.edit) angleClick(v, x, y);
+      else if (ui.tool === "mount" && v.edit) mountClick(v, x, y);
+      else if (ui.tool === "select") {
+        const hit = hitTube(v, x, y);
+        if (hit && hit.id !== ui.sel) { ui.sel = hit.id; ui.selPt = null; renderAll(); }
+        else if (!hit && ui.selPt !== null) { ui.selPt = null; renderAll(); }
+      }
+    }
+  };
+  cv.addEventListener("pointerup", end);
+  cv.addEventListener("pointercancel", end);
+  cv.addEventListener("pointerleave", () => { if (!drag && ui.angleHover) { ui.angleHover = null; drawAll(); } if (!drag && ui.hover && ui.hover.vid === v.id) { ui.hover = null; drawAll(); } });
+  cv.addEventListener("dblclick", (e) => {
+    if (ui.tool === "draw" || ui.tool === "measure" || ui.tool === "angle" || ui.tool === "mount") return; // the clicks already did the work
+    const [x, y] = localXY(v, e);
+    const t = selTube();
+    if (v.edit && t && t.pts.length >= 2) {
+      const b = basis(v), cp = t.pts.map((p) => proj(v, b, p.map(Number)));
+      let best = null;
+      for (let i = 1; i < cp.length; i++) { const h = distToSeg(x, y, cp[i - 1], cp[i]); if (h.d < 9 && (!best || h.d < best.d)) best = { ...h, i }; }
+      if (best && best.t > 0.02 && best.t < 0.98) {
+        pushUndo();
+        const a = t.pts[best.i - 1].map(Number), c = t.pts[best.i].map(Number);
+        t.pts.splice(best.i, 0, V.add(a, V.mul(V.sub(c, a), best.t)).map(r1)); shiftMounts(t, best.i, 1); ui.selPt = best.i;
+        changed(); renderAll();
+        return;
+      }
+    }
+    if (!hitTube(v, x, y)) fitAll();
+  });
+  cv.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const [x, y] = localXY(v, e);
+    const k = Math.exp(-e.deltaY * 0.0015);
+    const wx = toWorldX(v, x), wy = toWorldY(v, y);
+    v.scale = Math.max(0.2, Math.min(40, v.scale * k));
+    v.cx = wx - (x - v.W / 2) / v.scale; v.cy = wy + (y - v.H / 2) / v.scale;
+    drawView(v);
+  }, { passive: false });
+}
+document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".view")) ui.viewFocus = false; });
+
+// drop-down menus: one open at a time; outside click, Esc or picking an item closes them
+const menus = [...document.querySelectorAll("details.menu")];
+for (const m of menus) {
+  m.addEventListener("toggle", () => { if (m.open) for (const o of menus) if (o !== m) o.open = false; });
+  m.querySelector(".menu-pop").addEventListener("click", (e) => { const it = e.target.closest(".menu-item"); if (it && !it.classList.contains("keep-open")) m.open = false; });
+}
+document.addEventListener("pointerdown", (e) => { for (const m of menus) if (m.open && !m.contains(e.target)) m.open = false; });
+document.addEventListener("keydown", (e) => {
+  const open = e.key === "Escape" && menus.find((m) => m.open);
+  if (open) { open.open = false; open.querySelector("summary").focus(); e.stopPropagation(); } // Esc closes the menu, nothing else
+}, true);
+$("importFile").addEventListener("click", () => { for (const m of menus) m.open = false; });
+
+$("hintBtn").addEventListener("click", () => { uiPrefs.tips = !uiPrefs.tips; saveUiPrefs(); renderHint(); });
+
+// tabs under the drawing board; the open one is remembered
+const TABS = [...document.querySelectorAll('.tabs [role="tab"]')];
+function showTab(key, focus) {
+  for (const b of TABS) {
+    const on = b.id === "tab-" + key;
+    b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1;
+    $(b.getAttribute("aria-controls")).hidden = !on;
+    if (on && focus) b.focus();
+  }
+  uiPrefs.tab = key; saveUiPrefs();
+}
+for (const b of TABS) {
+  b.addEventListener("click", () => showTab(b.id.slice(4)));
+  b.addEventListener("keydown", (e) => {
+    const tabs = TABS.filter((t) => !t.hidden), i = tabs.indexOf(b), n = tabs.length;
+    const j = e.key === "ArrowRight" ? (i + 1) % n : e.key === "ArrowLeft" ? (i + n - 1) % n : e.key === "Home" ? 0 : e.key === "End" ? n - 1 : -1;
+    if (j >= 0) { e.preventDefault(); showTab(tabs[j].id.slice(4), true); }
+  });
+}
+if (uiPrefs.tab && $("tab-" + uiPrefs.tab)) showTab(uiPrefs.tab);
+
+let renderQueued = false;
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => { renderQueued = false; renderAll(); });
+}
+
+// ---------- DOM rendering ----------
+const kindLabel = (k) => (k === "planar" ? "Flat" : k === "3d" ? "3D" : "Straight");
+const statusPill = (s) => `<span class="pill ${s}">${s === "ok" ? "Ready" : s === "warn" ? "Check" : "Fix"}</span>`;
+
+function renderSummary() {
+  let pieces = 0, length = 0, weight = 0, bends = 0, bad = 0, warn = 0, minC = Infinity, minName = "";
+  for (const t of state.tubes) {
+    if (t.id === ui.drawing && t.pts.length < 2) continue;
+    const r = results.get(t.id), q = t.mirror ? 2 : 1;
+    pieces += q; length += q * (r.developed || 0); weight += q * (r.weight || 0); bends += q * r.bends.length;
+    if (r.status === "bad") bad++; else if (r.status === "warn") warn++;
+    if (r.clearance && r.clearance.d < minC) { minC = r.clearance.d; minName = r.clearance.name; }
+  }
+  const plan = G.stockPlan(state, results);
+  const mat = MATERIALS[state.stock.material]?.label || "";
+  const health = bad ? ["bad", `${bad} to fix`, "Tubes with errors: the red dots in the tube list"] : warn ? ["warn", `${warn} to check`, "Tubes with warnings: the amber dots in the tube list"] : ["ok", "All clear", "No errors or tight spots"];
+  $("healthBtn").innerHTML = `<span class="dot ${health[0]}"></span>${health[1]} <span aria-hidden="true">▾</span>`;
+  $("healthNote").textContent = health[2] + ".";
+  const row = (k, v, title) => `<dt>${k}</dt><dd${title ? ` title="${esc(title)}"` : ""}>${v}</dd>`;
+  $("summary").innerHTML =
+    row("Pieces", `${pieces} <span class="muted">from ${state.tubes.length} tubes</span>`) +
+    row("Rod", `${fmtInt(length)} mm`, `Ø${fmt(num(state.stock.od), 1)} ${mat.toLowerCase()}${num(state.stock.wall) > 0 ? " tube" : " rod"}, finished lengths`) +
+    row("Weight", `≈ ${fmt(weight, 0)} g`, "Finished cage, before brazing filler") +
+    row("Bends", String(bends)) +
+    row("Stock", `${plan.bins.length} × ${fmtInt(plan.L)} mm${plan.tooLong.length ? ` <span class="pill bad">+${plan.tooLong.length} too long</span>` : ""}`, "Stock rods to buy") +
+    row("Closest", Number.isFinite(minC) ? `${fmt(minC)} mm` : "–", minName ? `Closest to the car: ${minName}` : "");
+}
+
+const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-2.6 3.4M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>';
+/** Group names in the order their first tube appears. */
+const groupNames = () => [...new Set(state.tubes.map((t) => t.group).filter(Boolean))];
+function tubeRow(t) {
+  const r = results.get(t.id);
+  const vis = t.hidden ? "Show" : "Hide";
+  return `<li class="tube-item${t.hidden ? " is-hidden" : ""}${t.group ? " in-group" : ""}" role="option" tabindex="0" draggable="true" data-id="${esc(t.id)}" data-gkey="${esc(t.group || "")}" aria-selected="${t.id === ui.sel}" title="Drag onto a group to move it there">
+      <button class="vis" type="button" aria-pressed="${!t.hidden}" title="${vis} ${esc(t.name)} in the views" aria-label="${vis} ${esc(t.name)}">${t.hidden ? EYE_OFF : EYE}</button>
+      <span class="sw" style="background:${TUBE_COLORS[t.color % TUBE_COLORS.length]}"></span>
+      <span class="nm">${esc(t.name)}${t.mirror ? ' <span class="pill">×2</span>' : ""}${t.id === ui.drawing ? ' <span class="pill brass">drawing</span>' : ""}</span>
+      <span class="len">${r.cut > 0 ? fmtInt(r.cut) + " mm" : ""}</span>
+      <span class="dot ${r.status}" title="${r.status === "ok" ? "Ready" : r.status === "warn" ? "Has warnings" : "Has errors"}"></span></li>`;
+}
+/** Group header: eye for every tube in it (key "" = the tubes with no group), name, count. Also a drop target. */
+function groupHead(key, label, tubes) {
+  const allHidden = tubes.length > 0 && tubes.every((t) => t.hidden), someHidden = tubes.some((t) => t.hidden);
+  const vis = allHidden ? "Show" : "Hide", what = key ? `the ${esc(label)} group` : "the tubes with no group";
+  const eye = tubes.length ? `<button class="vis${someHidden && !allHidden ? " mixed" : ""}" type="button" aria-pressed="${!allHidden}" title="${vis} every tube in ${what}" aria-label="${vis} ${what}">${allHidden ? EYE_OFF : EYE}</button>` : "<span></span>";
+  return `<li class="group-head${key ? "" : " none"}${allHidden ? " is-hidden" : ""}" role="none" data-gkey="${esc(key)}">${eye}
+      <span class="gname">${esc(label)}</span><span class="len">${tubes.length ? tubes.length + (tubes.length === 1 ? " tube" : " tubes") : "drop a tube here"}</span></li>`;
+}
+function renderTubeList() {
+  $("tubeCount").textContent = `${state.tubes.length} designs`;
+  const groups = groupNames(), loose = state.tubes.filter((t) => !t.group);
+  // With groups: each group (header + its tubes), then "No group". Without: the plain list as before.
+  const html = groups.length
+    ? groups.map((g) => { const ts = state.tubes.filter((t) => t.group === g); return groupHead(g, g, ts) + ts.map(tubeRow).join(""); }).join("") + groupHead("", "No group", loose) + loose.map(tubeRow).join("")
+    : loose.map(tubeRow).join("");
+  $("tubeList").innerHTML = html || `<li class="muted" style="font-size:0.86rem">No tubes yet. Pick Draw tube and click in a view.</li>`;
+  $("showAllTubes").disabled = !state.tubes.some((t) => t.hidden);
+  $("hideAllTubes").disabled = !state.tubes.some((t) => !t.hidden);
+  $("delTube").disabled = !selTube();
+  $("dupTube").disabled = !selTube();
+  $("mirrorTube").disabled = !selTube();
+  $("extendTube").disabled = !selTube();
+}
+
+function renderEditor(skipPts) {
+  const t = selTube();
+  $("editCard").hidden = !t;
+  if (!t) return;
+  const r = results.get(t.id);
+  $("selKind").innerHTML = `<span class="pill ${r.kind === "3d" ? "warn" : "brass"}">${kindLabel(r.kind)}</span>`;
+  if (document.activeElement !== $("tubeName")) $("tubeName").value = t.name;
+  $("tubeMirror").checked = !!t.mirror;
+  if (document.activeElement !== $("tubeGroup")) $("tubeGroup").innerHTML = `<option value="">No group</option>` + groupNames().map((g) => `<option value="${esc(g)}"${g === t.group ? " selected" : ""}>${esc(g)}</option>`).join("");
+  const p = ui.selPt !== null && t.pts[ui.selPt];
+  $("ptReadout").textContent = p ? `Corner ${ui.selPt + 1} of ${t.pts.length}:  X ${fmt(+p[0])}  Y ${fmt(+p[1])}  Z ${fmt(+p[2])}` : `${t.pts.length} corners. Click a round handle to pick one.`;
+  if (skipPts) return;
+  $("ptsBody").innerHTML = t.pts.map((pt, i) => `<tr class="${i === ui.selPt ? "sel" : ""}">
+      <td data-pick="${i}" title="Select corner">${i + 1}</td>
+      ${[0, 1, 2].map((k) => `<td><input type="number" step="0.5" id="pt-${i}-${k}" data-pt="${i}" data-k="${k}" value="${+num(pt[k]).toFixed(2)}" aria-label="Corner ${i + 1} ${AXIS[k]}"></td>`).join("")}
+      <td><button class="icon danger" data-delpt="${i}" aria-label="Delete corner ${i + 1}" ${t.pts.length <= 2 ? "disabled" : ""}>✕</button></td></tr>`).join("");
+}
+
+function renderSettings() {
+  const set = (id, val) => { const el = $(id); if (document.activeElement !== el) el.value = val; };
+  set("material", state.stock.material); set("od", state.stock.od); set("wall", state.stock.wall); set("clr", state.bender.clr);
+  const mt = MATERIALS[state.stock.material] || MATERIALS.steel;
+  set("matE", state.stock.E ?? ""); $("matE").placeholder = `${mt.E} typical`;
+  set("matFy", state.stock.fy ?? ""); $("matFy").placeholder = `${mt.fy} typical`;
+  set("calTarget", state.bender.calTarget); set("calActual", state.bender.calActual); set("markOffset", num(state.bender.markOffset)); set("trim", state.bender.trim);
+  set("paperSel", state.paper);
+  set("minStraight", state.bender.minStraight); set("margin", state.margin); set("stockLen", state.stockLen);
+  set("snapSel", String(state.snap)); set("underlay", state.underlay); set("underlayAlpha", state.underlayAlpha);
+  $("underlayAlpha").disabled = !CAR.underlays[state.underlay]; // nothing to fade with None / Tubes only
+  if (document.activeElement !== $("designName")) $("designName").value = state.name;
+  if (document.activeElement !== $("designNotes")) $("designNotes").value = state.notes || "";
+  const cT = num(state.bender.calTarget), cA = num(state.bender.calActual);
+  $("calNote").textContent = cT > 0 && cA > 0 ? `Overbend factor ${fmt(cT / cA, 3)}: a 45° bend is bent to ${fmt(45 * cT / cA)}°.` : "Enter both angles to compensate for springback.";
+}
+
+function renderSheet() {
+  const t = selTube();
+  const r = t && results.get(t.id);
+  $("sheet").hidden = !t || r.P.length < 2;
+  $("sheetEmpty").hidden = !$("sheet").hidden;
+  if ($("sheet").hidden) return;
+  const q = t.mirror ? 2 : 1, clr = r.clearance;
+  $("sheetTitle").textContent = t.name;
+  $("sheetChips").innerHTML = `
+    <div class="chip"><b>${fmt(r.cut)} mm</b><span>cut length, incl. 2 × ${fmt(num(state.bender.trim), 0)} mm extra</span></div>
+    <div class="chip"><b>${q}</b><span>${t.mirror ? "pieces, mirrored pair" : "piece"}</span></div>
+    <div class="chip"><b>${r.bends.length}</b><span>bends · ${kindLabel(r.kind).toLowerCase()}${r.kind === "3d" ? ", needs rotation" : ""}</span></div>
+    <div class="chip"><b>${fmt(r.weight)} g</b><span>each</span></div>
+    <div class="chip ${clr ? (clr.d < 0 ? "bad" : clr.d < num(state.margin) ? "warn" : "ok") : ""}"><b>${clr ? fmt(clr.d) + " mm" : "–"}</b><span>${clr ? "to " + esc(clr.name) : "no keep-outs checked"}</span></div>`;
+  $("sheetMsgs").innerHTML = r.errors.map((m) => `<div class="msg bad">${esc(m)}</div>`).join("") + r.warnings.map((m) => `<div class="msg warn">${esc(m)}</div>`).join("");
+  $("bendBody").innerHTML = r.bends.map((b) => `<tr>
+      <td><b>B${b.no}</b> <span class="muted">at corner ${b.vertex + 1}</span></td>
+      <td class="num">${fmt(b.straightBefore)}</td><td class="num"><b>${fmt(b.mark)}</b></td><td class="num">${fmt(b.center)}</td>
+      <td class="num">${fmt(b.angle)}°</td><td class="num"><b>${fmt(b.bendTo)}°</b></td><td>${G.rotLabel(b.rot)}</td></tr>`).join("")
+    + `<tr><td class="muted">End</td><td class="num">${fmt(r.lastStraight)}</td><td colspan="5" class="muted">straight to the end, then ${fmt(num(state.bender.trim), 0)} mm extra to trim</td></tr>`;
+  $("sheetNote").textContent = (r.bends.length ? "Marks are measured from the start end (corner 1) of the cut rod. " : "No bends: just cut to length. ") + (t.mirror ? "The mirrored piece uses the same marks and angles with the rotations reversed." : "");
+  const prev = G.printPack(state, results, { paper: state.paper, only: t.id, screen: true });
+  $("tplPreview").innerHTML = prev.pages.map((pg) => `<div class="pp-prev">${pg.svg}</div>`).join("");
+}
+
+function renderCutList() {
+  let totQ = 0, totW = 0, totB = 0, totL = 0;
+  $("cutBody").innerHTML = state.tubes.filter((t) => results.get(t.id).P.length >= 2).map((t) => {
+    const r = results.get(t.id), q = t.mirror ? 2 : 1;
+    totQ += q; totW += q * r.weight; totB += q * r.bends.length; totL += q * r.cut;
+    const c = r.clearance;
+    return `<tr><td><span class="dot" style="background:${TUBE_COLORS[t.color % TUBE_COLORS.length]};border-radius:2px"></span> ${esc(t.name)}</td>
+      <td class="num">${q}</td><td class="num">${fmt(r.cut)}</td><td class="num">${r.bends.length}</td><td>${kindLabel(r.kind)}</td>
+      <td class="num">${fmt(r.weight)} g</td><td class="num">${c ? fmt(c.d) : "–"}</td><td>${statusPill(r.status)}</td></tr>`;
+  }).join("");
+  $("cutFoot").innerHTML = `<tr><td>Total</td><td class="num">${totQ}</td><td class="num">${fmtInt(totL)}</td><td class="num">${totB}</td><td></td><td class="num">${fmt(totW, 0)} g</td><td></td><td></td></tr>`;
+  const plan = G.stockPlan(state, results);
+  const lines = plan.bins.map((b, i) => `Rod ${i + 1}: ${b.items.map((p) => `${esc(p.name)} ${fmtInt(p.len)}`).join(" + ")} mm, ${fmtInt(b.left)} mm left over`);
+  if (plan.tooLong.length) lines.push(`<span style="color:var(--bad)">Longer than a ${fmtInt(plan.L)} mm stock rod: ${plan.tooLong.map((p) => esc(p.name)).join(", ")}. Buy longer stock or split the tube.</span>`);
+  $("stockPlan").innerHTML = `<b>Cutting plan</b> with ${fmtInt(plan.L)} mm stock and a 2 mm saw cut:<br>` + (lines.join("<br>") || "Nothing to cut yet.");
+}
+
+function renderKeepouts(skip) {
+  if (skip) return;
+  $("koBody").innerHTML = state.keepouts.map((k, i) => `<tr>
+    <td><input type="text" id="ko-${i}-name" data-ko="${i}" data-f="name" value="${esc(k.name)}" aria-label="Name"></td>
+    <td><select id="ko-${i}-kind" data-ko="${i}" data-f="kind" aria-label="Shape"><option value="box" ${k.kind === "box" ? "selected" : ""}>Box</option><option value="wheel" ${k.kind === "wheel" ? "selected" : ""}>Wheel</option></select></td>
+    ${[0, 1, 2].map((j) => `<td><input type="number" step="0.5" id="ko-${i}-c${j}" data-ko="${i}" data-f="c" data-j="${j}" value="${k.c[j]}" aria-label="Centre ${AXIS[j]}"></td>`).join("")}
+    ${[0, 1, 2].map((j) => `<td><input type="number" step="0.5" min="0" id="ko-${i}-s${j}" data-ko="${i}" data-f="s" data-j="${j}" value="${k.s[j]}" aria-label="Size ${j + 1}" ${k.kind === "wheel" && j === 2 ? "disabled" : ""}></td>`).join("")}
+    <td><input type="checkbox" id="ko-${i}-check" data-ko="${i}" data-f="check" ${k.check ? "checked" : ""} aria-label="Check clearance"></td>
+    <td><input type="checkbox" id="ko-${i}-mount" data-ko="${i}" data-f="mount" ${k.mount ? "checked" : ""} aria-label="Mount surface"></td>
+    <td class="note-cell">${esc(k.note || "your own")}</td>
+    <td><button class="icon danger" data-delko="${i}" aria-label="Delete ${esc(k.name)}">✕</button></td></tr>`).join("");
+}
+
+// ---------- strength check (Strength button) ----------
+// The analysis is CageGeo.strengthCheck in geometry.js. This section decides when to run it, colours the tubes,
+// draws mounts / joints / loads / bending / brace previews over the views, fills the Strength tab and runs the
+// Mounts tool. With the button off none of it runs and the views look as they always did.
+const strengthOn = () => !!uiPrefs.strength;
+let strength = null, strengthWas = null, strengthTimer = 0;
+Object.assign(ui, { strCase: -1, strBend: false, strPreview: null, strFlash: null, strFresh: false });
+// everything the result depends on; a result is only drawn while its key still matches the design
+const strengthKey = () => JSON.stringify([state.tubes.map((t) => [t.id, t.name, t.pts, t.mirror, t.mounts || 0]), state.stock, state.bender, state.keepouts, state.strength, state.margin]);
+// fresh = a result for the current design, solved or not: with no mounts there is no solve, but the Mounts tool and
+// the joint dots still need the frame to add the first mount
+const strengthFresh = () => strengthOn() && !!strength && !!strength.model && strength.key === strengthKey();
+function scheduleStrength() {
+  if (!strengthOn()) return;
+  clearTimeout(strengthTimer);
+  strengthTimer = setTimeout(runStrength, 250);
+}
+function runStrength() {
+  clearTimeout(strengthTimer);
+  if (!strengthOn()) return;
+  const key = strengthKey();
+  if (strength && strength.key === key) return;
+  let r;
+  try { r = G.strengthCheck(state, results, { suggest: true }); }
+  catch (err) { console.error(err); r = { error: String(err && err.message || err), warnings: [], cases: [], report: { worst: 0, spots: [], elems: [] }, suggestions: [] }; }
+  r.key = key; r.cols = new Map();
+  if (strength && strength.sol && strength.report.worst > 0) strengthWas = strength.report.worst;
+  strength = r; hideTip();
+  if (ui.strCase >= r.cases.length) ui.strCase = -1;
+  if (ui.strPreview && !(r.suggestions || []).some((sg) => JSON.stringify(sg.pts) === JSON.stringify(ui.strPreview.pts))) ui.strPreview = null;
+  renderStrength(); drawAll();
+}
+function setStrength(on, quiet) {
+  uiPrefs.strength = on; saveUiPrefs();
+  $("strengthBtn").setAttribute("aria-pressed", String(on));
+  $("toolMount").hidden = !on;
+  $("tab-strength").hidden = !on;
+  if (on) {
+    if (!quiet) showTab("strength");
+    runStrength();
+  } else {
+    clearTimeout(strengthTimer);
+    if (ui.tool === "mount") setTool("select");
+    if (uiPrefs.tab === "strength") showTab("part");
+    strength = null; strengthWas = null; ui.strPreview = null; ui.strFlash = null; hideTip(); $("strSel").innerHTML = "";
+    drawAll();
+  }
+}
+
+const pct = (s) => `${Math.round(s * 100)}%`;
+/** The word for a utilisation (stress / yield, or push / buckling load). Words, colours and the legend share these bands. */
+function rating(s) {
+  return s < 0.5 ? { word: "Strong", cls: "ok" } : s < 0.8 ? { word: "OK", cls: "ok" } : s < 1 ? { word: "Tight", cls: "warn" } : { word: "Bends", cls: "bad" };
+}
+const pctClass = (s) => rating(s).cls;
+const rateChip = (s) => { const r = rating(s); return `<span class="rate ${r.cls}">${r.word}</span>`; };
+/** Tube colour for a utilisation: green to 50 % (Strong), to amber by 80 % (OK), to red by 100 % (Tight), red beyond (Bends). */
+function utilColor(s) {
+  if (s <= 0.5) return colors.ok;
+  if (s <= 0.8) return mixHex(colors.ok, colors.warn, (s - 0.5) / 0.3);
+  return mixHex(colors.warn, colors.bad, Math.min(1, (s - 0.8) / 0.2));
+}
+const elemScore = (x) => (ui.strCase < 0 ? x.score : Math.max(x.u[ui.strCase] || 0, x.b[ui.strCase] || 0));
+/** One colour per drawn segment of a tube copy: the colour of that copy's nearest frame element. Grey if not held. */
+function strengthCols(t, mir) {
+  const key = `${t.id}|${mir}|${ui.strCase}|${colors.ok}`;
+  if (strength.cols.has(key)) return strength.cols.get(key);
+  const { model, report } = strength, r = results.get(t.id);
+  const ci = model.copies.findIndex((c) => c.tubeId === t.id && c.mir === mir);
+  let cols = null;
+  if (ci >= 0 && r) {
+    const els = report.elems.filter((x) => x.e.copy === ci && x.e.kind === "tube");
+    const pts = mir ? r.samples.map(mirrorPt) : r.samples;
+    cols = [];
+    for (let i = 1; i < pts.length; i++) {
+      const m = V.mul(V.add(pts[i - 1], pts[i]), 0.5);
+      let best = null, bd = Infinity;
+      for (const x of els) { const d = G.segClosest(model.nodes[x.e.a].p, model.nodes[x.e.b].p, m, m).d; if (d < bd) { bd = d; best = x; } }
+      cols.push(best ? utilColor(elemScore(best)) : colors.muted);
+    }
+  }
+  strength.cols.set(key, cols);
+  return cols;
+}
+
+/** Marks over a view: bent shape, joints, mounts (triangles), Mounts-tool corners, load arrows, brace preview, flash. */
+function drawStrengthOverlay(ctx, v, P) {
+  const { model, sol, cases, report } = strength;
+  const hidden = new Set(state.tubes.filter((t) => t.hidden).map((t) => t.id));
+  const shown = (nd) => nd.copies.some((c) => !hidden.has(model.copies[c].tubeId));
+  ctx.save();
+  // bending, exaggerated so the biggest movement is 8 % of the cage's size
+  const ci = ui.strCase >= 0 ? ui.strCase : report.spots[0] ? report.spots[0].caseIdx : -1;
+  if (ui.strBend && ci >= 0 && sol) {
+    const u = sol.cases[ci].u;
+    let maxU = 0; for (const d of u) maxU = Math.max(maxU, V.len(d));
+    const xs = model.nodes.map((nd) => nd.p), ext = Math.max(...[0, 1, 2].map((k) => Math.max(...xs.map((p) => p[k])) - Math.min(...xs.map((p) => p[k]))));
+    if (maxU > 0) {
+      const k = 0.08 * ext / maxU;
+      ctx.setLineDash([5, 4]); ctx.strokeStyle = colors.ink; ctx.globalAlpha = 0.7; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (const e of sol.elems) {
+        const a = P(V.add(model.nodes[e.a].p, V.mul(u[e.a], k))), b = P(V.add(model.nodes[e.b].p, V.mul(u[e.b], k)));
+        ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+      }
+      ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+  }
+  // joints: where tubes are brazed together (shared points and short links)
+  const linked = new Set(); for (const e of model.elems) if (e.kind === "link") { linked.add(e.a); linked.add(e.b); }
+  ctx.fillStyle = colors.ink;
+  model.nodes.forEach((nd, i) => {
+    if ((nd.copies.length < 2 && !linked.has(i)) || !shown(nd)) return;
+    const q = P(nd.p); ctx.beginPath(); ctx.arc(q[0], q[1], 2.6, 0, Math.PI * 2); ctx.fill();
+  });
+  // mounts: a small foot under the point
+  for (const m of model.mounts) {
+    if (!shown(model.nodes[m])) continue;
+    const q = P(model.nodes[m].p);
+    ctx.beginPath(); ctx.moveTo(q[0], q[1] + 2); ctx.lineTo(q[0] - 6.5, q[1] + 12); ctx.lineTo(q[0] + 6.5, q[1] + 12); ctx.closePath();
+    ctx.fillStyle = colors.ink; ctx.fill(); ctx.strokeStyle = colors["view-bg"]; ctx.lineWidth = 1; ctx.stroke();
+  }
+  // Mounts tool: the corners that can be clicked
+  if (ui.tool === "mount" && v.edit) {
+    ctx.strokeStyle = colors.ink; ctx.lineWidth = 1.5;
+    const done = new Set(model.mounts);
+    for (const c of model.cornerNodes) {
+      if (done.has(c.node) || hidden.has(c.tubeId)) continue;
+      done.add(c.node);
+      const q = P(model.nodes[c.node].p); ctx.beginPath(); ctx.arc(q[0], q[1], 5, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  // load arrows for the picked case
+  if (ui.strCase >= 0 && cases[ui.strCase]) {
+    const cs = cases[ui.strCase];
+    ctx.strokeStyle = colors.bad; ctx.fillStyle = colors.bad; ctx.lineWidth = 2;
+    for (const n of cs.nodes) {
+      const p = model.nodes[n].p, q = P(p), e = P(V.add(p, cs.dir));
+      let dx = e[0] - q[0], dy = e[1] - q[1]; const l = Math.hypot(dx, dy);
+      if (l < 0.25 * v.scale) { ctx.beginPath(); ctx.arc(q[0], q[1], 6, 0, Math.PI * 2); ctx.stroke(); continue; } // pushing straight at you
+      dx /= l; dy /= l;
+      const tx = q[0] - dx * 22, ty = q[1] - dy * 22;
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(q[0] - dx * 5, q[1] - dy * 5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(q[0] - dx * 3, q[1] - dy * 3); ctx.lineTo(q[0] - dx * 10 - dy * 4, q[1] - dy * 10 + dx * 4); ctx.lineTo(q[0] - dx * 10 + dy * 4, q[1] - dy * 10 - dx * 4); ctx.closePath(); ctx.fill();
+    }
+  }
+  // the brace being previewed
+  if (ui.strPreview) {
+    const pv = ui.strPreview, segs = [pv.pts]; if (pv.mirror) segs.push(pv.pts.map(mirrorPt));
+    ctx.strokeStyle = colors.brass; ctx.lineWidth = Math.max(2.5, num(state.stock.od, 3) * v.scale); ctx.setLineDash([7, 5]); ctx.lineCap = "butt";
+    for (const [a, b] of segs) { const qa = P(a), qb = P(b); ctx.beginPath(); ctx.moveTo(qa[0], qa[1]); ctx.lineTo(qb[0], qb[1]); ctx.stroke(); }
+    ctx.setLineDash([]); ctx.lineCap = "round";
+  }
+  // the weak spot picked in the list
+  if (ui.strFlash && performance.now() < ui.strFlash.until) {
+    const q = P(ui.strFlash.p);
+    ctx.strokeStyle = colors.brass; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(q[0], q[1], 13, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Mounts tool: click a tube corner to fix it to the car or free it. Every tube corner at that point changes together.
+function hitCorner(v, x, y) {
+  if (!strengthFresh()) return null;
+  const b = basis(v), hidden = new Set(state.tubes.filter((t) => t.hidden).map((t) => t.id));
+  let best = null, bd = 11;
+  for (const c of strength.model.cornerNodes) {
+    if (hidden.has(c.tubeId)) continue;
+    const q = proj(v, b, strength.model.nodes[c.node].p), d = Math.hypot(q[0] - x, q[1] - y);
+    if (d < bd) { bd = d; best = c; }
+  }
+  return best;
+}
+function mountClick(v, x, y) {
+  if (!strengthFresh()) { runStrength(); if (!strengthFresh()) return; }
+  const c = hitCorner(v, x, y); if (!c) return;
+  const on = !strength.model.mounts.includes(c.node);
+  pushUndo();
+  const names = new Set();
+  for (const o of strength.model.cornerNodes) {
+    if (o.node !== c.node) continue;
+    const t = tubeById(o.tubeId); if (!t) continue;
+    t.mounts = { ...(t.mounts || {}), [o.corner]: on };
+    names.add(t.mirror ? `${t.name} (both sides)` : t.name);
+  }
+  changed(); renderAll(); runStrength();
+  toast(`${on ? "Mounted" : "Freed"}: ${[...names].join(", ")} at that corner.`);
+}
+/** Keep mount overrides on the same corners when a corner is inserted (delta 1) or deleted (delta -1) at index i. */
+function shiftMounts(t, i, delta) {
+  if (!t.mounts) return;
+  const out = {};
+  for (const [k, val] of Object.entries(t.mounts)) {
+    const n = +k;
+    if (delta < 0 && n === i) continue;
+    out[n >= i ? n + delta : n] = val;
+  }
+  t.mounts = Object.keys(out).length ? out : undefined;
+}
+
+function renderStrength() {
+  if (!strengthOn()) return;
+  const r = strength, sg = state.strength;
+  // inputs
+  const setv = (id, v) => { const el = $(id); if (document.activeElement !== el) el.value = v; };
+  setv("strWeight", sg.weight); setv("strFix", sg.fix);
+  setv("strRoof", sg.factors.roof); setv("strSide", sg.factors.side); setv("strNose", sg.factors.nose); setv("strRear", sg.factors.rear);
+  const mat = G.materialOf(state.stock), mt = MATERIALS[state.stock.material] || MATERIALS.steel, N = (f) => fmt(num(sg.weight) / 1000 * 9.81 * num(f), 1);
+  $("strMaterial").innerHTML = `${esc(mt.label)}: stiffness ${fmt(mat.E / 1000, 0)} GPa${mat.typicalE ? " (typical)" : ""}, yield ${fmt(mat.fy, 0)} MPa${mat.typicalFy ? " (typical)" : ""}. Change them under Rod &amp; bender. Pushes: roof ${N(sg.factors.roof)} N, side ${N(sg.factors.side)} N, nose ${N(sg.factors.nose)} N, rear ${N(sg.factors.rear)} N.`;
+  $("strBend").checked = ui.strBend;
+  const opts = [["-1", "Worst of all cases"], ...(r ? r.cases : []).map((c, i) => [String(i), c.label])];
+  const sel = $("strCase");
+  if (sel.options.length !== opts.length || [...sel.options].some((o, i) => o.textContent !== opts[i][1])) sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("");
+  sel.value = String(ui.strCase);
+  if (!r) { $("strNoMount").hidden = true; $("strSummary").textContent = "Working it out…"; $("strSel").innerHTML = ""; $("strWarnings").innerHTML = ""; $("strSpots").innerHTML = ""; $("strSugg").innerHTML = ""; return; }
+  $("strWarnings").innerHTML = (r.error ? [`The strength check failed: ${r.error}`] : r.warnings).map((w) => `<li>${esc(w)}</li>`).join("");
+  $("strNoMount").hidden = !(r.lowCorners && r.lowCorners.length);
+  renderStrengthSel();
+  const top = r.report.spots[0];
+  if (!r.sol || !top) {
+    $("strSummary").innerHTML = r.error || r.lowCorners ? "" : "Nothing to check yet: the cage needs mounts and loads.";
+    $("strSpots").innerHTML = ""; $("strSugg").innerHTML = ""; return;
+  }
+  const was = strengthWas != null && Math.abs(strengthWas - r.report.worst) >= 0.005 ? ` <span class="muted">Was ${pct(strengthWas)} before your last change.</span>` : "";
+  $("strSummary").innerHTML = `Worst spot: <b class="${pctClass(r.report.worst)}">${pct(r.report.worst)}</b> ${rateChip(r.report.worst)} on ${esc(top.tube)} ${esc(top.place)}, in the ${esc(top.caseLabel.toLowerCase())}.${was}`;
+  $("strSpots").innerHTML = r.report.spots.slice(0, 6).map((sp, i) => `<li class="pick" data-spot="${i}" title="Show it in the views">
+      <span class="pct ${pctClass(sp.score)}">${pct(sp.score)}${rateChip(sp.score)}</span>
+      <span>${esc(sp.tube)} ${esc(sp.place)}<span class="sub">${esc(sp.caseLabel)}${sp.buckling ? " · bows out sideways (buckling)" : ""}</span></span><span></span></li>`).join("");
+  const kinds = { diagonal: "Diagonal brace", gusset: "Corner bar", buckling: "Middle brace" };
+  const sugg = r.suggestions || [];
+  $("strSugg").innerHTML = sugg.length ? sugg.map((x, i) => {
+    const len = V.len(V.sub(x.pts[1], x.pts[0])), on = ui.strPreview && JSON.stringify(ui.strPreview.pts) === JSON.stringify(x.pts);
+    return `<li class="${on ? "on" : ""}" data-sugg="${i}">
+      <span class="pct ${pctClass(x.worstAfter)}" title="Worst spot with this brace">→ ${pct(x.worstAfter)}${rateChip(x.worstAfter)}</span>
+      <span>${kinds[x.kind] || "Brace"}${x.mirror ? " on both sides" : ""}, ${fmt(len, 0)} mm, +${fmt(x.weight, 1)} g<span class="sub">${esc(x.reason)}</span></span>
+      <span class="acts"><button data-act="show" aria-pressed="${on}">Show</button><button data-act="add" class="primary">Add</button></span></li>`;
+  }).join("") : `<li><span class="empty">No single brace lowers the worst spot by 5% or more. Try a thicker rod, or more mounts.</span></li>`;
+}
+
+
+// Tube detail while Strength is on: a popup when hovering a tube in any view, and the same block for the selected
+// tube in the Strength tab (works without a mouse). Five parts: where, how hard, why (stretch / bending / twist,
+// buckling), which crash, and the load along the whole tube with a marker at this spot.
+const CASE_SHORT = { roof: "Roof", left: "Side L", right: "Side R", nose: "Nose", rear: "Rear" };
+function strengthPlace(e) {
+  const { model } = strength, names = model.copies.map((c) => c.name);
+  for (const v of [e.a, e.b]) { const nd = model.nodes[v]; if (nd.copies.length > 1) return `at the joint with ${nd.copies.filter((c) => c !== e.copy).map((c) => names[c]).join(" and ")}`; }
+  for (const v of [e.a, e.b]) if (model.mounts.includes(v)) return "at the mount";
+  return e.bend ? `at bend ${e.bend}` : "along the straight";
+}
+/** The tube copy's elements in order from its start end, with distances along it, joint positions and its length. */
+function strengthStrip(ci) {
+  strength.strips ||= new Map();
+  if (strength.strips.has(ci)) return strength.strips.get(ci);
+  const { model, report } = strength, seq = model.copies[ci].seq, byPair = new Map();
+  report.elems.forEach((x, i) => { if (x.e.copy === ci && x.e.kind === "tube") byPair.set(Math.min(x.e.a, x.e.b) + "-" + Math.max(x.e.a, x.e.b), i); });
+  const segs = [], joints = []; let at = 0;
+  for (let k = 1; k < seq.length; k++) {
+    const a = seq[k - 1], b = seq[k], L = V.len(V.sub(model.nodes[b].p, model.nodes[a].p));
+    const ei = byPair.get(Math.min(a, b) + "-" + Math.max(a, b));
+    if (ei !== undefined) segs.push({ s0: at, s1: at + L, ei, a, b });
+    at += L;
+    if (k < seq.length - 1 && model.nodes[b].copies.length > 1) joints.push(at);
+  }
+  const out = { segs, joints, L: at };
+  strength.strips.set(ci, out);
+  return out;
+}
+/** The tube under the mouse while Strength is on: its copy, nearest element and the distance along it. */
+function strengthHitAt(v, x, y) {
+  if (!ui.strFresh) return null;
+  const b = basis(v); let best = null, bd = 9;
+  for (const t of state.tubes) {
+    if (t.hidden) continue;
+    const r = results.get(t.id); if (!r || r.samples.length < 2) continue;
+    for (const mir of t.mirror ? [false, true] : [false]) {
+      const pts = mir ? r.samples.map(mirrorPt) : r.samples;
+      for (let i = 1; i < pts.length; i++) {
+        const h = distToSeg(x, y, proj(v, b, pts[i - 1]), proj(v, b, pts[i]));
+        if (h.d < bd) { bd = h.d; best = { t, mir, p: V.add(pts[i - 1], V.mul(V.sub(pts[i], pts[i - 1]), h.t)) }; }
+      }
+    }
+  }
+  if (!best) return null;
+  const { model } = strength, ci = model.copies.findIndex((c) => c.tubeId === best.t.id && c.mir === best.mir);
+  if (ci < 0) return null;
+  const strip = strengthStrip(ci);
+  if (!strip.segs.length) return { ci, ei: -1, along: 0 }; // not held by anything
+  let hit = null, hd = Infinity;
+  for (const sg of strip.segs) {
+    const pa = model.nodes[sg.a].p, pb = model.nodes[sg.b].p, c = G.segClosest(pa, pb, best.p, best.p);
+    if (c.d < hd) { hd = c.d; hit = { sg, along: sg.s0 + c.s * (sg.s1 - sg.s0) }; }
+  }
+  return { ci, ei: hit.sg.ei, along: hit.along };
+}
+/** HTML for one spot on a tube copy: element ei, `along` mm from the tube's start end. */
+function strengthDetail(ci, ei, along) {
+  const { model, report, sol, sec, cases } = strength, copy = model.copies[ci], t = tubeById(copy.tubeId);
+  const sw = `<span class="sw" style="background:${t ? TUBE_COLORS[t.color % TUBE_COLORS.length] : colors.muted}"></span>`;
+  if (ei < 0) return `<div class="sd"><div class="sd-head">${sw}<b>${esc(copy.name)}</b></div><div>${model.mounts.length ? "Carries no load: nothing connects it to a mount. Move an end onto a tube that is connected, or mount one of its corners." : "Nothing is mounted yet, so there is no load to show. Mount the lowest corners (Strength tab) or click corners with the Mounts tool."}</div></div>`;
+  const x = report.elems[ei], c = ui.strCase >= 0 ? ui.strCase : x.worstCase, f = sol.cases[c].forces[ei];
+  const score = Math.max(x.u[c], x.b[c]);
+  // 2. how hard
+  let big = `<div class="sd-big"><span class="pct ${pctClass(score)}">${pct(score)}</span>${rateChip(score)}<span>in the ${esc(cases[c].label.toLowerCase())}</span></div>
+    <div class="sd-place">of the way to bending for good (100% = stays bent)</div>`;
+  if (ui.strCase >= 0 && x.worstCase !== c) big += `<div class="sd-place">Its worst: ${pct(x.score)} (${rating(x.score).word}) in the ${esc(cases[x.worstCase].label.toLowerCase())}</div>`;
+  // 3. why: the parts of the stress (von Mises: axial + bending, with twisting as √3·τ)
+  const Z = sec.I / sec.c, ax = Math.abs(f.N) / sec.A, bend = Math.max(...f.M) / Z, tw = Math.sqrt(3) * f.T * sec.c / sec.J, sum = ax + bend + tw || 1;
+  const axName = f.N < 0 ? "Squash" : "Stretch", share = (v) => Math.round(v / sum * 100);
+  let why = `<div class="sd-k">Why</div>
+    <div class="sd-mix" title="${axName} ${share(ax)}%, bending ${share(bend)}%, twisting ${share(tw)}%"><i class="ax" style="width:${ax / sum * 100}%"></i><i class="bd" style="width:${bend / sum * 100}%"></i><i class="tw" style="width:${tw / sum * 100}%"></i></div>
+    <div class="sd-legend"><span style="--c:var(--brass)">${axName} ${share(ax)}%</span><span style="--c:var(--bad)">Bending ${share(bend)}%</span><span style="--c:var(--muted)">Twisting ${share(tw)}%</span></div>`;
+  if (x.b[c] > 0) why += `<div>Buckling: ${pct(x.b[c])} of the push that makes this straight bow out sideways.</div>`;
+  why += `<div class="sd-place">${bend / sum > 0.6 ? "Mostly bending: a brace or corner bar nearby helps most." : ax / sum > 0.6 ? (f.N < 0 ? "Mostly squashed: a shorter free length (a brace to its middle) or thicker rod helps." : "Mostly stretched: it is already working well; thicker rod helps.") : "A mix: a brace nearby or thicker rod both help."}</div>`;
+  // 4. which crash
+  const scores = cases.map((_, i) => Math.max(x.u[i], x.b[i])), top = Math.max(1, ...scores);
+  const crash = `<div class="sd-k">Each crash, here</div><div class="sd-cases">${cases.map((cs, i) => `<span class="${i === c ? "on" : ""}">${CASE_SHORT[cs.id] || cs.label}</span><span class="bar"><i style="width:${scores[i] / top * 100}%;background:${utilColor(scores[i])}"></i></span><span class="v ${i === c ? "on" : ""}">${pct(scores[i])}</span>`).join("")}</div>`;
+  // 5. along the whole tube, coloured as in the views, with joints ticked and this spot marked
+  const st = strengthStrip(ci), W = 1000, k = W / (st.L || 1);
+  // bending changes in a straight line along each element, so the strip shows where in it the load peaks
+  const cc = ui.strCase, rects = st.segs.map((sg) => {
+    const X = report.elems[sg.ei], cs = cc >= 0 ? [cc] : cases.map((_, i) => i), flip = X.e.a !== sg.a, n = 8, parts = [];
+    for (let j = 0; j < n; j++) {
+      let s = (j + 0.5) / n; if (flip) s = 1 - s;
+      let worst = 0;
+      for (const i of cs) {
+        const F = sol.cases[i].forces[sg.ei], m = [0, 1].map((q) => F.Mv[0][q] * (1 - s) + F.Mv[1][q] * s);
+        const vm = Math.hypot(Math.abs(F.N) / sec.A + Math.hypot(...m) / Z, Math.sqrt(3) * F.T * sec.c / sec.J);
+        worst = Math.max(worst, vm / strength.mat.fy, X.b[i]);
+      }
+      const x0 = sg.s0 + (sg.s1 - sg.s0) * j / n, w = (sg.s1 - sg.s0) / n;
+      parts.push(`<rect x="${(x0 * k).toFixed(1)}" y="6" width="${Math.max(1, w * k + 0.6).toFixed(1)}" height="10" fill="${utilColor(worst)}"/>`);
+    }
+    return parts.join("");
+  }).join("");
+  const ticks = st.joints.map((s) => `<rect x="${(s * k - 2).toFixed(1)}" y="3" width="4" height="16" fill="${colors.ink}"/>`).join("");
+  const mark = `<path d="M${(along * k).toFixed(1)} 0 l-9 0 l9 6 l9 -6 z" fill="${colors.brass}"/><rect x="${(along * k - 3).toFixed(1)}" y="5" width="6" height="12" fill="${colors.brass}"/>`;
+  const strip = `<div class="sd-k">Along the tube</div><div class="sd-strip"><svg viewBox="0 0 ${W} 22" preserveAspectRatio="none" aria-hidden="true">${rects}${ticks}${mark}</svg>
+    <div class="ends"><span>start</span><span>${fmt(along, 0)} of ${fmt(st.L, 0)} mm${st.joints.length ? " · ticks are joints" : ""}</span><span>end</span></div></div>`;
+  return `<div class="sd"><div class="sd-head">${sw}<b>${esc(copy.name)}</b></div><div class="sd-place">${esc(strengthPlace(x.e))}</div>${big}${why}${crash}${strip}</div>`;
+}
+/** The selected tube's weakest spot, for the Strength tab. */
+function renderStrengthSel() {
+  const el = $("strSel"), t = selTube();
+  if (!strengthFresh() || !t) { el.innerHTML = ""; return; }
+  const { model, report } = strength;
+  let best = null;
+  model.copies.forEach((c, ci) => {
+    if (c.tubeId !== t.id) return;
+    const st = strengthStrip(ci);
+    if (!st.segs.length) { if (!best) best = { ci, ei: -1, along: 0, s: -1 }; return; }
+    for (const sg of st.segs) { const s = elemScore(report.elems[sg.ei]); if (!best || s > best.s) best = { ci, ei: sg.ei, along: (sg.s0 + sg.s1) / 2, s }; }
+  });
+  el.innerHTML = best ? `<div class="sd-k" style="margin-bottom:6px">Selected tube: its weakest spot</div>` + strengthDetail(best.ci, best.ei, best.along) : "";
+}
+
+// the hover popup
+let tipShowT = 0;
+function hideTip() { clearTimeout(tipShowT); $("strTip").hidden = true; }
+function placeTip(cx, cy) {
+  const el = $("strTip"), w = el.offsetWidth, h = el.offsetHeight, gap = 18;
+  const x = cx + gap + w > window.innerWidth - 8 ? cx - gap - w : cx + gap;
+  const y = Math.max(8, Math.min(window.innerHeight - h - 8, cy + gap));
+  el.style.left = Math.max(8, x) + "px"; el.style.top = y + "px";
+}
+function strengthHover(v, e) {
+  if (e.pointerType === "touch" || !ui.strFresh || drag) { hideTip(); return; }
+  // the hit test is a few thousand short segments: cheap enough to run on every move
+  const [x, y] = localXY(v, e), cx = e.clientX, cy = e.clientY;
+  const h = strengthHitAt(v, x, y);
+  if (!h) { hideTip(); return; }
+  const show = () => { $("strTip").innerHTML = strengthDetail(h.ci, h.ei, h.along); $("strTip").hidden = false; placeTip(cx, cy); };
+  if (!$("strTip").hidden) { show(); return; } // already open: follow the mouse
+  clearTimeout(tipShowT); tipShowT = setTimeout(show, 160); // a short pause first, so passing over tubes doesn't flash it
+}
+for (const v of VIEWS) {
+  v.cv.addEventListener("pointermove", (e) => { if (strengthOn()) strengthHover(v, e); });
+  v.cv.addEventListener("pointerleave", hideTip);
+  v.cv.addEventListener("pointerdown", hideTip);
+  v.cv.addEventListener("wheel", hideTip, { passive: true });
+}
+window.addEventListener("scroll", hideTip, { passive: true });
+
+$("strengthBtn").addEventListener("click", () => setStrength(!strengthOn()));
+$("strMountLow").addEventListener("click", () => {
+  const low = strength && strength.lowCorners; if (!low || !low.length) return;
+  pushUndo();
+  for (const c of low) { const t = tubeById(c.tubeId); if (t) t.mounts = { ...(t.mounts || {}), [c.corner]: true }; }
+  changed(); renderAll(); runStrength();
+  const names = [...new Set(low.map((c) => tubeById(c.tubeId)?.name).filter(Boolean))];
+  toast(`Mounted ${new Set(low.map((c) => c.node)).size} lowest corners (${names.join(", ")}). Undo takes them off; the Mounts tool changes single corners.`);
+});
+$("strMountTool").addEventListener("click", () => { setTool("mount"); document.querySelector(".views").scrollIntoView({ block: "start", behavior: "smooth" }); });
+$("toolMount").addEventListener("click", () => setTool(ui.tool === "mount" ? "select" : "mount"));
+$("strCase").addEventListener("change", (e) => { ui.strCase = +e.target.value; renderStrength(); drawAll(); });
+$("strBend").addEventListener("change", (e) => { ui.strBend = e.target.checked; drawAll(); });
+for (const [id, set] of [
+  ["strWeight", (v) => (state.strength.weight = v)], ["strRoof", (v) => (state.strength.factors.roof = v)], ["strSide", (v) => (state.strength.factors.side = v)],
+  ["strNose", (v) => (state.strength.factors.nose = v)], ["strRear", (v) => (state.strength.factors.rear = v)],
+]) $(id).addEventListener("input", (e) => { const v = parseFloat(e.target.value); if (!(v >= 0)) return; beginEdit(); set(v); changed(); scheduleStrength(); renderStrength(); });
+$("strFix").addEventListener("change", (e) => { beginEdit(); state.strength.fix = e.target.value; changed(); scheduleStrength(); });
+$("strSpots").addEventListener("click", (e) => {
+  const li = e.target.closest("[data-spot]"); if (!li || !strength) return;
+  const sp = strength.report.spots[+li.dataset.spot]; if (!sp) return;
+  if (tubeById(sp.tubeId)) { ui.sel = sp.tubeId; ui.selPt = null; }
+  ui.strFlash = { p: sp.p, until: performance.now() + 1800 };
+  renderAll(); setTimeout(drawAll, 1850);
+});
+$("strSugg").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b || !strength) return;
+  const x = (strength.suggestions || [])[+b.closest("[data-sugg]").dataset.sugg]; if (!x) return;
+  if (b.dataset.act === "show") {
+    ui.strPreview = ui.strPreview && JSON.stringify(ui.strPreview.pts) === JSON.stringify(x.pts) ? null : x;
+    renderStrength(); drawAll(); return;
+  }
+  pushUndo();
+  const n = state.tubes.filter((t) => /^Brace \d+$/.test(t.name)).length + 1;
+  const t = { id: uid("t"), name: `Brace ${n}`, color: nextColor(), mirror: !!x.mirror, pts: x.pts.map((p) => p.map(Number)) };
+  state.tubes.push(t); ui.sel = t.id; ui.selPt = null; ui.strPreview = null;
+  changed(); renderAll(); runStrength();
+  toast(`${t.name} added${t.mirror ? " on both sides" : ""}. Undo takes it away.`);
+});
+
+function renderAll(opts = {}) {
+  recompute();
+  renderSummary();
+  renderTubeList();
+  renderEditor(opts.skipPts);
+  renderSettings();
+  renderSheet();
+  renderCutList();
+  renderKeepouts(opts.skipKo);
+  $("undoBtn").disabled = !undoStack.length;
+  $("redoBtn").disabled = !redoStack.length;
+  drawAll();
+  if (strengthOn()) { renderStrength(); scheduleStrength(); }
+}
+
+// ---------- event wiring ----------
+// One undo step per field edit: remember the state on focus, push it on the first real change.
+let pendingSnap = null;
+document.addEventListener("focusin", (e) => { if (e.target.matches("input, select")) pendingSnap = JSON.stringify(state); });
+function beginEdit() { if (pendingSnap) { undoStack.push(pendingSnap); if (undoStack.length > 150) undoStack.shift(); redoStack.length = 0; pendingSnap = null; } }
+
+const settingMap = {
+  od: ["stock", "od"], wall: ["stock", "wall"], clr: ["bender", "clr"], calTarget: ["bender", "calTarget"], calActual: ["bender", "calActual"], markOffset: ["bender", "markOffset"],
+  trim: ["bender", "trim"], minStraight: ["bender", "minStraight"], margin: [null, "margin"], stockLen: [null, "stockLen"],
+};
+for (const [id, [grp, key]] of Object.entries(settingMap)) {
+  $(id).addEventListener("input", (e) => {
+    const v = parseFloat(e.target.value); if (!Number.isFinite(v)) return;
+    beginEdit();
+    if (grp) state[grp][key] = v; else state[key] = v;
+    changed(); scheduleRender();
+  });
+}
+for (const [id, key] of [["matE", "E"], ["matFy", "fy"]]) $(id).addEventListener("input", (e) => {
+  const v = parseFloat(e.target.value);
+  if (e.target.value.trim() !== "" && !(v > 0)) return;
+  beginEdit();
+  if (e.target.value.trim() === "") delete state.stock[key]; else state.stock[key] = v; // empty = the material's typical value
+  changed(); scheduleRender();
+});
+$("material").innerHTML = Object.entries(MATERIALS).map(([k, m]) => `<option value="${k}">${m.label}</option>`).join("");
+$("material").addEventListener("change", (e) => { beginEdit(); state.stock.material = e.target.value; changed(); renderAll(); });
+$("designName").addEventListener("input", (e) => { beginEdit(); state.name = e.target.value; changed(); });
+$("designNotes").addEventListener("input", (e) => { beginEdit(); state.notes = e.target.value; changed(); });
+document.addEventListener("focusin", (e) => { if (e.target.matches("textarea")) pendingSnap = JSON.stringify(state); });
+$("underlay").innerHTML = Object.entries(CAR.underlays).map(([k, u]) => `<option value="${k}">${esc(u.label)}</option>`).join("") + `<option value="none" title="Hide the manual drawing: show the car keep-outs, grid and tubes">Car keep-outs only</option><option value="tubes" title="Hide the manual drawing, car keep-outs and grid: show only the tubes">Tubes only</option>`;
+$("underlay").addEventListener("change", (e) => { state.underlay = e.target.value; $("underlayAlpha").disabled = !CAR.underlays[state.underlay]; changed(); drawAll(); });
+$("underlayAlpha").addEventListener("input", (e) => { state.underlayAlpha = +e.target.value; changed(); drawAll(); });
+$("snapSel").addEventListener("change", (e) => { state.snap = +e.target.value; changed(); });
+
+$("toolSelect").addEventListener("click", () => setTool("select"));
+$("toolDraw").addEventListener("click", () => setTool("draw"));
+$("toolMeasure").addEventListener("click", () => setTool("measure"));
+$("toolAngle").addEventListener("click", () => setTool("angle"));
+$("extendTube").addEventListener("click", () => {
+  const t = selTube(); if (!t) return;
+  setTool("draw");
+  if (t.hidden) { t.hidden = false; changed(); }
+  ui.drawing = t.id; ui.selPt = t.pts.length - 1;
+  toast(`Extending ${t.name}: click to add corners after corner ${t.pts.length}.`);
+  renderAll();
+});
+function addPreset(name, pts) {
+  pushUndo();
+  const t = { id: uid("t"), name: `${name} ${state.tubes.length + 1}`, color: nextColor(), mirror: false, pts };
+  state.tubes.push(t); ui.sel = t.id; ui.selPt = null;
+  setTool("select");
+  changed(); renderAll();
+  toast(`${t.name} added. Drag it into place, or drag its handles to reshape it.`);
+}
+$("addHoop").addEventListener("click", () => {
+  const X = num(state.planes.front);
+  addPreset("Hoop", [[X, 47, 21], [X, 40, 85], [X, -40, 85], [X, -47, 21]]);
+});
+$("addBar").addEventListener("click", () => {
+  const Z = num(state.planes.top);
+  addPreset("Bar", [[-30, 0, Z], [30, 0, Z]]);
+});
+$("fitBtn").addEventListener("click", fitAll);
+document.querySelectorAll("[data-expand]").forEach((btn) => btn.addEventListener("click", () => {
+  const id = btn.dataset.expand;
+  ui.big = ui.big === id ? null : id;
+  document.querySelectorAll(".view").forEach((f) => f.classList.toggle("big", f.dataset.view === ui.big));
+  document.querySelectorAll("[data-expand]").forEach((b) => (b.textContent = b.dataset.expand === ui.big ? "⤡" : "⤢"));
+  requestAnimationFrame(fitAll);
+}));
+
+// Show / hide: only changes what the views draw (and what you can click or snap to there).
+// Hidden tubes still count in the cut list, print pack and summary.
+function setHidden(tubes, hidden) {
+  for (const t of tubes) t.hidden = hidden;
+  if (hidden && ui.angle) ui.angle = null;
+  changed(); renderAll();
+}
+$("tubeList").addEventListener("click", (e) => {
+  const b = e.target.closest(".vis"); if (!b) return;
+  e.stopImmediatePropagation();
+  const row = b.closest("[data-id]");
+  if (row) {
+    const t = tubeById(row.dataset.id); if (!t) return;
+    setHidden([t], !t.hidden);
+    $("tubeList").querySelector(`[data-id="${CSS.escape(t.id)}"] .vis`)?.focus();
+    return;
+  }
+  // group header: hide the lot if any is showing, else show the lot
+  const key = b.closest(".group-head").dataset.gkey;
+  const ts = state.tubes.filter((t) => (t.group || "") === key);
+  setHidden(ts, ts.some((t) => !t.hidden));
+  $("tubeList").querySelector(`.group-head[data-gkey="${CSS.escape(key)}"] .vis`)?.focus();
+});
+$("tubeList").addEventListener("click", (e) => { if (e.target.closest("[data-id]")) showTab("part"); });
+$("tubeList").addEventListener("click", (e) => {
+  const li = e.target.closest("[data-id]"); if (!li) return;
+  ui.sel = li.dataset.id; ui.selPt = null; renderAll();
+});
+$("showAllTubes").addEventListener("click", () => setHidden(state.tubes, false));
+$("hideAllTubes").addEventListener("click", () => setHidden(state.tubes, true));
+$("tubeList").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  if (e.target.closest(".vis")) return; // the eye button handles its own keys
+  const li = e.target.closest("[data-id]"); if (!li) return;
+  e.preventDefault(); ui.sel = li.dataset.id; ui.selPt = null; renderAll();
+  $("tubeList").querySelector(`[data-id="${CSS.escape(ui.sel)}"]`)?.focus();
+});
+$("dupTube").addEventListener("click", () => {
+  const t = selTube(); if (!t) return;
+  pushUndo();
+  const c = clone(t); c.id = uid("t"); c.name = t.name + " copy"; c.color = nextColor(); c.hidden = false;
+  c.pts = c.pts.map((p) => [p[0] - 20, p[1], p[2]]);
+  state.tubes.splice(state.tubes.indexOf(t) + 1, 0, c); ui.sel = c.id; ui.selPt = null;
+  changed(); renderAll(); toast("Copy placed 20 mm behind. Drag it into place.");
+});
+$("mirrorTube").addEventListener("click", () => {
+  const t = selTube(); if (!t) return;
+  pushUndo(); t.pts = t.pts.map(mirrorPt); changed(); renderAll();
+});
+// Groups: a tube's `group` is a name. A group lives only while a tube is in it.
+function moveToGroup(t, name) {
+  const g = String(name || "").trim().slice(0, 40) || null;
+  if ((t.group || null) === g) return;
+  pushUndo(); pendingSnap = null;
+  t.group = g;
+  changed(); renderAll();
+}
+$("tubeGroup").addEventListener("change", (e) => { const t = selTube(); if (t) moveToGroup(t, e.target.value); });
+function newGroupFromInput() {
+  const t = selTube(); if (!t) return;
+  const name = $("newGroupName").value.trim();
+  if (!name) { toast("Type a name for the new group first."); $("newGroupName").focus(); return; }
+  const existed = groupNames().includes(name);
+  moveToGroup(t, name);
+  $("newGroupName").value = "";
+  toast(existed ? `${t.name} moved to the existing group "${name}".` : `Group "${name}" made with ${t.name} in it. Drag other tubes onto it to add them.`);
+}
+$("newGroupBtn").addEventListener("click", newGroupFromInput);
+$("newGroupName").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); newGroupFromInput(); } });
+// Drag a tube row onto a group's header or rows to move it in, onto "No group" to take it out.
+let dragTubeId = null;
+const dropKeyAt = (e) => { const el = e.target.closest?.("[data-gkey]"); return el ? el.dataset.gkey : null; };
+const clearDrop = () => document.querySelectorAll("#tubeList .drop").forEach((el) => el.classList.remove("drop"));
+$("tubeList").addEventListener("dragstart", (e) => {
+  const li = e.target.closest?.(".tube-item[data-id]"); if (!li) return;
+  dragTubeId = li.dataset.id;
+  e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragTubeId);
+  li.classList.add("dragging");
+});
+$("tubeList").addEventListener("dragend", () => {
+  dragTubeId = null; clearDrop();
+  document.querySelectorAll("#tubeList .dragging").forEach((el) => el.classList.remove("dragging"));
+});
+$("tubeList").addEventListener("dragover", (e) => {
+  const t = dragTubeId && tubeById(dragTubeId), key = dropKeyAt(e);
+  clearDrop();
+  if (!t || key === null || key === (t.group || "")) return;
+  e.preventDefault(); e.dataTransfer.dropEffect = "move";
+  $("tubeList").querySelector(`.group-head[data-gkey="${CSS.escape(key)}"]`)?.classList.add("drop");
+});
+$("tubeList").addEventListener("dragleave", (e) => { if (!$("tubeList").contains(e.relatedTarget)) clearDrop(); });
+$("tubeList").addEventListener("drop", (e) => {
+  const t = dragTubeId && tubeById(dragTubeId), key = dropKeyAt(e);
+  clearDrop(); if (!t || key === null) return;
+  e.preventDefault();
+  moveToGroup(t, key);
+  toast(key ? `${t.name} moved to "${key}".` : `${t.name} taken out of its group.`);
+});
+/** Two-click confirm: the first click turns the button into a question, the second runs the action.
+ *  The question stays until it is answered, the user clicks anywhere else, or presses Escape. */
+function disarm(btn) { delete btn.dataset.armed; btn.classList.remove("confirming"); btn.textContent = btn.dataset.orig; }
+function disarmAll(except) { document.querySelectorAll("[data-armed]").forEach((b) => { if (b !== except) disarm(b); }); }
+function armConfirm(btn, label, action) {
+  if (btn.dataset.armed) { disarm(btn); action(); return; }
+  disarmAll(btn);
+  btn.dataset.orig = btn.textContent; btn.dataset.armed = "1"; btn.classList.add("confirming"); btn.textContent = label;
+}
+document.addEventListener("pointerdown", (e) => disarmAll(e.target.closest?.("[data-armed]")), true);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") disarmAll(); });
+$("delTube").addEventListener("click", (e) => {
+  const t = selTube(); if (!t) return;
+  armConfirm(e.currentTarget, `Delete "${t.name}"?`, () => {
+    pushUndo();
+    const i = state.tubes.indexOf(t); state.tubes.splice(i, 1);
+    if (ui.drawing === t.id) ui.drawing = null;
+    ui.sel = state.tubes[Math.max(0, i - 1)]?.id || null; ui.selPt = null;
+    changed(); renderAll(); toast(`Deleted ${t.name}. Undo brings it back.`);
+  });
+});
+$("tubeName").addEventListener("input", (e) => { const t = selTube(); if (!t) return; beginEdit(); t.name = e.target.value; changed(); scheduleRender(); });
+$("tubeMirror").addEventListener("change", (e) => { const t = selTube(); if (!t) return; beginEdit(); t.mirror = e.target.checked; changed(); renderAll(); });
+
+$("ptsBody").addEventListener("input", (e) => {
+  const el = e.target; if (!el.dataset.pt) return;
+  const t = selTube(); const v = parseFloat(el.value); if (!t || !Number.isFinite(v)) return;
+  beginEdit();
+  t.pts[+el.dataset.pt][+el.dataset.k] = v; ui.selPt = +el.dataset.pt;
+  changed(); renderAll({ skipPts: true });
+});
+$("ptsBody").addEventListener("click", (e) => {
+  const pick = e.target.closest("[data-pick]");
+  if (pick) { ui.selPt = +pick.dataset.pick; renderAll(); return; }
+  const del = e.target.closest("[data-delpt]");
+  if (del) deletePoint(+del.dataset.delpt);
+});
+function deletePoint(i) {
+  const t = selTube(); if (!t || t.pts.length <= 2) { toast("A tube needs at least 2 corners. Delete the tube instead."); return; }
+  pushUndo(); t.pts.splice(i, 1); shiftMounts(t, i, -1); ui.selPt = null; changed(); renderAll();
+}
+
+$("koBody").addEventListener("input", (e) => {
+  const el = e.target; if (el.dataset.ko === undefined) return;
+  const k = state.keepouts[+el.dataset.ko]; if (!k) return;
+  const f = el.dataset.f;
+  if (f === "name") { beginEdit(); k.name = el.value; }
+  else if (f === "c" || f === "s") { const v = parseFloat(el.value); if (!Number.isFinite(v)) return; beginEdit(); k[f][+el.dataset.j] = f === "s" ? Math.max(0, v) : v; k.note = k.note && !k.note.startsWith("edited") ? "edited · " + k.note : k.note || "edited"; }
+  else return;
+  changed(); renderAll({ skipKo: true });
+});
+$("koBody").addEventListener("change", (e) => {
+  const el = e.target; if (el.dataset.ko === undefined) return;
+  const k = state.keepouts[+el.dataset.ko]; if (!k) return;
+  if (el.dataset.f === "kind") { beginEdit(); k.kind = el.value; if (k.kind === "wheel") k.s[2] = k.s[0]; changed(); renderAll(); }
+  if (el.dataset.f === "check") { beginEdit(); k.check = el.checked; changed(); renderAll({ skipKo: true }); }
+  if (el.dataset.f === "mount") { beginEdit(); k.mount = el.checked; changed(); renderAll({ skipKo: true }); }
+});
+$("koBody").addEventListener("click", (e) => {
+  const del = e.target.closest("[data-delko]"); if (!del) return;
+  pushUndo(); state.keepouts.splice(+del.dataset.delko, 1); changed(); renderAll();
+});
+$("addBox").addEventListener("click", () => { pushUndo(); state.keepouts.push({ id: uid("k"), name: "New part", kind: "box", c: [0, 0, 40], s: [30, 30, 20], check: true, note: "" }); changed(); renderAll(); });
+$("addWheel").addEventListener("click", () => { pushUndo(); state.keepouts.push({ id: uid("k"), name: "Wheel", kind: "wheel", c: [0, 100, 33.5], s: [67, 28, 67], check: true, note: "" }); changed(); renderAll(); });
+$("resetCar").addEventListener("click", (e) => armConfirm(e.currentTarget, "Replace all keep-outs?", () => {
+  pushUndo(); state.keepouts = clone(CAR.keepouts); changed(); renderAll(); toast("Keep-outs reset to the manual layout. Undo restores yours.");
+}));
+
+$("undoBtn").addEventListener("click", undo);
+$("redoBtn").addEventListener("click", redo);
+document.addEventListener("keydown", (e) => {
+  const typing = e.target.matches("input, select, textarea");
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y" && !typing) { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    if (fileHandle && fileWritable) { clearTimeout(saveTimer); doSave(); }
+    else if (fileHandle) $("allowFile").click();
+    else if (canLinkFiles) saveToNewFile();
+    else $("exportJson").click();
+    return;
+  }
+  if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (ui.tool === "draw") {
+    if (e.key === "Enter") { e.preventDefault(); finishDrawing(); return; }
+    if (e.key === "Escape") { e.preventDefault(); setTool("select"); return; }
+    if (e.key === "Backspace" && ui.drawing) {
+      e.preventDefault();
+      const t = tubeById(ui.drawing);
+      if (t) { pushUndo(); shiftMounts(t, t.pts.length - 1, -1); t.pts.pop(); if (!t.pts.length) { state.tubes.splice(state.tubes.indexOf(t), 1); ui.drawing = null; ui.sel = state.tubes[0]?.id || null; } ui.selPt = t.pts.length ? t.pts.length - 1 : null; changed(); renderAll(); }
+      return;
+    }
+  }
+  if (ui.tool === "measure" && e.key === "Escape") { e.preventDefault(); if (ui.measure) { ui.measure = null; drawAll(); } else setTool("select"); return; }
+  if (ui.tool === "angle" && e.key === "Escape") { e.preventDefault(); if (ui.angle) { ui.angle = null; drawAll(); } else setTool("select"); return; }
+  if (ui.tool === "mount" && e.key === "Escape") { e.preventDefault(); setTool("select"); return; }
+  if (e.key === "v" || e.key === "V") { setTool("select"); return; }
+  if (e.key === "a" || e.key === "A") { setTool("angle"); return; }
+  if (e.key === "m" || e.key === "M") { setTool("measure"); return; }
+  if (e.key === "d" || e.key === "D") { setTool("draw"); return; }
+  if ((e.key === "Delete" || e.key === "Backspace") && ui.selPt !== null && ui.tool === "select") { e.preventDefault(); deletePoint(ui.selPt); return; }
+  if (e.key === "Escape" && ui.selPt !== null) { ui.selPt = null; renderAll(); return; }
+  const arrows = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+  const t = selTube();
+  if (arrows[e.key] && t && ui.viewFocus) {
+    e.preventDefault();
+    const v = viewById(ui.lastView) || viewById("side");
+    const step = (num(state.snap) || 1) * (e.shiftKey ? 10 : 1);
+    const [a, b] = arrows[e.key];
+    const d = V.add(V.mul(v.r, a * step), V.mul(v.u, b * step));
+    nudgeUndoGate();
+    if (ui.selPt !== null) t.pts[ui.selPt] = V.add(t.pts[ui.selPt].map(Number), d).map((q) => Math.round(q * 1000) / 1000);
+    else t.pts = t.pts.map((p) => V.add(p.map(Number), d).map((q) => Math.round(q * 1000) / 1000));
+    changed(); renderAll();
+  }
+});
+
+$("paperSel").innerHTML = Object.entries(G.PAPERS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("");
+$("paperSel").addEventListener("change", (e) => { beginEdit(); state.paper = e.target.value; changed(); renderAll(); });
+const today = () => new Date().toISOString().slice(0, 10);
+const buildPack = (only) => G.printPack(state, results, { paper: state.paper, only, date: today() });
+function printPages(pack) {
+  const { w, h } = pack.paper;
+  $("pageRule").textContent = `@page { size: ${w}mm ${h}mm; margin: 0; } @media print { #printRoot .pp-page { width: ${w}mm; height: ${h - 1}mm; } }`;
+  $("printRoot").innerHTML = pack.pages.map((pg) => `<div class="pp-page">${pg.svg}</div>`).join("");
+  try { window.print(); } catch (e) { toast("Printing isn't available here. Use \"Save as file\" and print that file."); }
+}
+$("printPack").addEventListener("click", () => printPages(buildPack()));
+$("printPart").addEventListener("click", () => { const t = selTube(); if (t) printPages(buildPack(t.id)); });
+$("savePack").addEventListener("click", () => offerFile(`${slug(state.name)}-print-pack.html`, G.printPackHTML(buildPack(), `${state.name}: print pack`), "text/html"));
+$("copySheet").addEventListener("click", async () => {
+  const t = selTube(); if (!t) return;
+  try { await navigator.clipboard.writeText(G.bendSheetText(t, results.get(t.id), state, state.name)); toast("Bend sheet copied. It pastes into a spreadsheet as columns."); }
+  catch (e) { toast("Copying isn't allowed here. Use \"Save 1:1 template\" instead."); }
+});
+$("exportJson").addEventListener("click", () => (canLinkFiles ? saveToNewFile() : offerFile(`${slug(state.name)}.json`, JSON.stringify(state, null, 2), "application/json")));
+$("openFile").addEventListener("click", async () => {
+  let handle;
+  try { [handle] = await window.showOpenFilePicker({ types: FILE_TYPES, multiple: false }); } catch (e) { return; } // cancelled
+  loadFromHandle(handle);
+});
+$("reopenFile").addEventListener("click", () => { if (lastHandle) loadFromHandle(lastHandle); });
+$("fileChip").addEventListener("click", (e) => {
+  if (!fileHandle && !importedName && lastHandle) { loadFromHandle(lastHandle); return; }
+  e.stopPropagation(); $("fileMenu").open = true;
+});
+$("allowFile").addEventListener("click", async () => { if (fileHandle && (await linkFile(fileHandle))) { await writeLinkedFile(); toast(`Changes now save into ${fileHandle.name}.`); } });
+$("saveAsFile").addEventListener("click", saveToNewFile);
+$("unlinkFile").addEventListener("click", () => { const n = fileHandle && fileHandle.name; unlinkFile(true); toast(`No longer saving to ${n}. Your changes stay in this browser.`); });
+renderFileMenu();
+if (canLinkFiles) kv("readonly", (st) => st.get("file")).then((h) => { if (h && !fileHandle) { lastHandle = h; renderFileMenu(); } }).catch(() => {});
+$("copyJson").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(JSON.stringify(state, null, 2)); toast("Design JSON copied."); }
+  catch (e) { toast("Copying isn't allowed here. Use \"Save file\" instead."); }
+});
+$("importFile").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const d = migrate(JSON.parse(String(rd.result)));
+      pushUndo(); state = d; ui.sel = state.tubes[0]?.id || null; ui.selPt = null; ui.drawing = null;
+      importedName = f.name; renderFileMenu();
+      changed(); renderAll(); fitAll(); toast(`Opened ${f.name}. Changes stay in this browser: use File → Save design file to keep them.`);
+    } catch (err) { toast(err.message && err.message.startsWith("This file") ? err.message : "That file isn't valid JSON."); }
+    e.target.value = "";
+  };
+  rd.readAsText(f);
+});
+$("resetBtn").addEventListener("click", (e) => armConfirm(e.currentTarget, "Replace design with example?", () => {
+  if (fileHandle) unlinkFile(false); // the example is a new design, so it must not overwrite the linked file
+  importedName = ""; renderFileMenu();
+  pushUndo(); state = exampleDesign(); ui.sel = state.tubes[0].id; ui.selPt = null; ui.drawing = null;
+  changed(); renderAll(); fitAll(); toast("Example loaded. Undo restores your design.");
+}));
+
+let resizeT = null;
+new ResizeObserver(() => { clearTimeout(resizeT); resizeT = setTimeout(drawAll, 60); }).observe(document.querySelector(".view-grid"));
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+new MutationObserver(drawAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawAll);
+
+// A browser still holding an older, unedited example gets the current one; Undo brings the old one back.
+const tubeSig = (tubes) => JSON.stringify(tubes.map((t) => t.pts));
+if (state.name === "Example cage (edit me)" || (CAR.example.previousSignatures || []).includes(tubeSig(state.tubes))) {
+  pushUndo();
+  state = exampleDesign(); ui.sel = state.tubes[0]?.id || null;
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+  setTimeout(() => toast("Loaded the new example cage. Undo brings back the previous one."), 600);
+}
+setTool("select");
+renderAll();
+if (strengthOn()) setStrength(true, true);
+else if (uiPrefs.tab === "strength") showTab("part");
+requestAnimationFrame(fitAll);
+connectDb();
+</script>
+</body>
+</html>
